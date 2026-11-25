@@ -87,6 +87,25 @@ To receive automatic release notifications and one-tap in-place updates:
 
 ---
 
+## How to Use
+
+> **Important:** NavBeam is completely vendor-neutral and does **not** ship with proprietary manufacturer keys or dash configurations built in. **You need a device profile `.json` file for your specific display and must upload it into the app before connecting.**
+
+1. **Get a Device Profile (`.json`):**
+   - Obtain a tested `.json` profile for your dash model from the community, or create one matching the [`DashProfile.json`](DashProfile.json) template schema (display size, Wi-Fi prefix/ports, protocol framing, maneuvers, and input bindings).
+2. **Upload the `.json` in NavBeam:**
+   - On first launch, tap **Get Started** to open **Hardware profile** (or open **Menu → Hardware profile** later).
+   - Tap **Select .json File to Upload**, pick your device `.json` file, and select it as the active profile.
+3. **Grant Permissions:**
+   - Allow Wi-Fi / Nearby Devices and precise Location (required by Android to discover and connect to the dash hotspot and provide GPS turn-by-turn). Optionally enable Notification access for now-playing & call overlays.
+4. **Navigate & Lock Your Phone:**
+   - Search for a destination in NavBeam (or **Share** any pin/route directly from Google Maps into NavBeam) and tap **Send to Dash**.
+   - Approve Android's one-time Wi-Fi connection prompt when linking to the dash. Once streaming starts, you can turn your phone screen **OFF** and put it in your pocket.
+5. **Diagnostics & Bug Reports (Optional):**
+   - Everything stays local on your device. If you hit a crash or want to share ride performance stats, use **Menu → Diagnostics & Bug Reports → Report Issue on GitHub** or **Share Diagnostics (.zip)**.
+
+---
+
 ## Building from Source
 
 ```bash
