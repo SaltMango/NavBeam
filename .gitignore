@@ -1,0 +1,38 @@
+# --- Build Artifacts ---
+.gradle/
+build/
+app/build/
+app/release/
+.kotlin/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+*.aar
+*.jar
+*.dm
+
+# --- IDE (IntelliJ/Android Studio) ---
+*.iml
+.idea/
+
+# --- OS Specific ---
+.DS_Store
+Thumbs.db
+
+# --- Security & Credentials (NEVER COMMIT) ---
+local.properties
+signing.properties
+*.jks
+*.keystore
+serviceAccount.json
+
+# --- Tooling & Others ---
+/tools/
+node_modules/
+.claude/settings.local.json
+/dist/
+/version*/
+/captures/
+*.log
+*trace

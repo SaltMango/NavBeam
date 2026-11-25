@@ -1,0 +1,75 @@
+name: Build Production APK
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build-apk:
+    name: Build APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Gradle Cache
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Restore local.properties (if MAPS_API_KEY secret provided)
+        env:
+          MAPS_API_KEY: ${{ secrets.MAPS_API_KEY }}
+        if: ${{ env.MAPS_API_KEY != '' }}
+        run: |
+          echo "MAPS_API_KEY=$MAPS_API_KEY" >> local.properties
+
+      - name: Make gradlew executable
+        run: chmod +x gradlew
+
+      - name: Compute Dynamic Auto-Increment Version
+        id: auto_version
+        run: |
+          RUN_NUM=${{ github.run_number }}
+          BASE_VC=16
+          NEW_VC=$((BASE_VC + RUN_NUM))
+
+          BASE_PATCH=4
+          NEW_PATCH=$((BASE_PATCH + RUN_NUM))
+          NEW_VN="1.3.${NEW_PATCH}"
+
+          echo "VERSION_CODE=${NEW_VC}" >> $GITHUB_ENV
+          echo "VERSION_NAME=${NEW_VN}" >> $GITHUB_ENV
+          echo "Auto-Incremented versionCode: ${NEW_VC}, versionName: ${NEW_VN}"
+
+      - name: Restore Release Keystore & signing.properties (if secret provided)
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        if: ${{ env.KEYSTORE_BASE64 != '' }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > app/release.jks
+          cat << EOF > signing.properties
+          storeFile=app/release.jks
+          storePassword=$KEYSTORE_PASSWORD
+          keyAlias=$KEY_ALIAS
+          keyPassword=$KEY_PASSWORD
+          EOF
+
+      - name: Build Production APK
+        run: ./gradlew assembleRelease assembleDebug -PversionCode=${{ env.VERSION_CODE }} -PversionName=${{ env.VERSION_NAME }} --stacktrace
+
+      - name: Upload APK to GitHub Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: NavBeam-Android-APKs
+          path: app/build/outputs/apk/
+          retention-days: 14

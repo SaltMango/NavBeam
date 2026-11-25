@@ -1,0 +1,34 @@
+NavBeam
+Copyright 2026 NavBeam Contributors
+
+This product includes software developed as part of the NavBeam project,
+licensed under the GNU General Public License, Version 3 (see the LICENSE file).
+
+--------------------------------------------------------------------------------
+Legal Disclaimer & User Responsibility
+--------------------------------------------------------------------------------
+
+This project is intended strictly for interoperability, research, preservation,
+and compatibility purposes. NavBeam does not include, distribute, or require
+copyrighted software, firmware, cryptographic keys, or proprietary libraries.
+
+Users and contributors are solely responsible for ensuring that any hardware
+profiles, configuration files, or data imported into or used with this software
+are created, obtained, and utilized in compliance with all applicable laws and
+respective third-party terms. The authors and contributors assume no liability
+or responsibility for user-provided profiles, third-party configurations,
+hardware malfunctions, or misuse.
+
+NavBeam is an independent, community open-source project. It is NOT affiliated
+with, endorsed by, sponsored by, or supported by any vehicle or display manufacturer.
+
+All product names, logos, and brands are property of their respective owners.
+All company, product, and service names used in this project are for identification
+and interoperability purposes only. Use of these names, logos, and brands does
+not imply endorsement.
+
+The display communication used by NavBeam is unofficial and exists solely
+for interoperability with hardware the user already owns. NavBeam only streams
+a video feed to an external display and reads control inputs; it does not modify,
+and cannot modify, the vehicle, its ECU, or any safety system.
+Use at your own risk.
