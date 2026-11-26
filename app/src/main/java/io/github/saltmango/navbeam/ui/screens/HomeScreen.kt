@@ -45,7 +45,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import io.github.saltmango.navbeam.BuildConfig
 import io.github.saltmango.navbeam.dash.nav.VoiceManager
 import io.github.saltmango.navbeam.dash.nav.VoiceMode
 import io.github.saltmango.navbeam.dash.profile.DashProfileManager
@@ -54,7 +53,6 @@ import io.github.saltmango.navbeam.data.MapsKeyManager
 import io.github.saltmango.navbeam.ui.NavBeamIcons
 import io.github.saltmango.navbeam.ui.components.*
 import io.github.saltmango.navbeam.ui.theme.*
-import io.github.saltmango.navbeam.util.BuildId
 import io.github.saltmango.navbeam.viewmodel.ConnectionState
 import io.github.saltmango.navbeam.viewmodel.RidesViewModel
 import io.github.saltmango.navbeam.viewmodel.RouteViewModel
@@ -880,23 +878,6 @@ fun HomeScreen(
                 }
             }
 
-            // 7. Debug footer
-            if (BuildConfig.DEBUG) {
-                val buildSha = remember { BuildId.sha12(ctx) }
-                Row(
-                    horizontalArrangement = Arrangement.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp)
-                ) {
-                    Text(
-                        text = "DEV BUILD: $buildSha • v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
-                        color = colors.textLo.copy(alpha = 0.5f),
-                        fontSize = 10.sp,
-                        fontFamily = GeistMonoFamily,
-                    )
-                }
-            }
         }
         }
     }
@@ -986,7 +967,6 @@ private fun NoProfileHomeContent(
     onOpenExternalUrl: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val ctx = LocalContext.current
     val colors = NavBeamTheme.colors
 
     BoxWithConstraints(modifier = modifier) {
@@ -1131,17 +1111,6 @@ private fun NoProfileHomeContent(
                         modifier = Modifier.weight(1f),
                     )
                 }
-            }
-
-            if (BuildConfig.DEBUG) {
-                val buildSha = remember { BuildId.sha12(ctx) }
-                Text(
-                    text = "DEV BUILD: $buildSha • v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
-                    color = colors.textLo.copy(alpha = 0.5f),
-                    fontSize = 10.sp,
-                    fontFamily = GeistMonoFamily,
-                    modifier = Modifier.padding(top = 16.dp),
-                )
             }
         }
     }
