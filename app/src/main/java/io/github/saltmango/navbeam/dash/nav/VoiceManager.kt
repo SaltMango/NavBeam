@@ -12,7 +12,7 @@ import java.util.Locale
 enum class VoiceMode { OFF, TONE, FULL }
 
 /**
- * Turn-by-turn voice guidance. We own this layer (CLAUDE.md feature 2), so it's a plain
+ * Turn-by-turn voice guidance. We own this layer (AGENTS.md feature 2), so it's a plain
  * per-trip setting: OFF (silent), TONE (a beep before each turn), or FULL (spoken
  * directions). Singleton so the RouteScreen toggle and the nav loop in [DashViewModel]
  * share one engine + persisted mode.
