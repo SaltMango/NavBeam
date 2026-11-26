@@ -392,6 +392,8 @@ class DashProfileJsonCodecTest {
             "image.png",
             "document.pdf",
             "config.xml",
+            ".json",
+            ".navbeam",
             "noextension",
             "",
             null,
@@ -404,5 +406,14 @@ class DashProfileJsonCodecTest {
             assertTrue("Expected '$name' to be rejected", result.isFailure)
             assertTrue(result.exceptionOrNull() is IllegalArgumentException)
         }
+    }
+
+    @Test
+    fun profileFileImporter_sanitizesExportFileName() {
+        assertEquals("himalayan_450-v2.navbeam", ProfileFileImporter.sanitizeExportFileName("himalayan_450-v2"))
+        assertEquals("etcpasswd.navbeam", ProfileFileImporter.sanitizeExportFileName("../../etc/passwd"))
+        assertEquals("MyDash1.navbeam", ProfileFileImporter.sanitizeExportFileName("My Dash!@# 1"))
+        assertEquals("profile.navbeam", ProfileFileImporter.sanitizeExportFileName("../..///..."))
+        assertEquals("profile.navbeam", ProfileFileImporter.sanitizeExportFileName(""))
     }
 }

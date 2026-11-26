@@ -1,6 +1,7 @@
 package io.github.saltmango.navbeam.ui.screens
 
 import android.Manifest
+import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -35,6 +37,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -45,6 +48,7 @@ import io.github.saltmango.navbeam.dash.profile.DashProfileJsonCodec
 import io.github.saltmango.navbeam.dash.profile.DashProfileManager
 import io.github.saltmango.navbeam.dash.profile.DisplayShape
 import io.github.saltmango.navbeam.dash.profile.ProfileFileImporter
+import io.github.saltmango.navbeam.dash.profile.ProfileUrlImporter
 import io.github.saltmango.navbeam.ui.NavBeamIcons
 import io.github.saltmango.navbeam.ui.components.*
 import io.github.saltmango.navbeam.ui.theme.*
@@ -88,6 +92,11 @@ fun ProfileSetupScreen(
     var showPasteDialog by remember { mutableStateOf(false) }
     var pastedJson by remember { mutableStateOf("") }
     var pasteError by remember { mutableStateOf<String?>(null) }
+
+    var showUrlDialog by remember { mutableStateOf(false) }
+    var urlInput by remember { mutableStateOf("") }
+    var urlError by remember { mutableStateOf<String?>(null) }
+    var isImportingUrl by remember { mutableStateOf(false) }
 
     LaunchedEffect(incomingImportState) {
         when (incomingImportState) {
@@ -191,19 +200,26 @@ fun ProfileSetupScreen(
         scope.launch {
             val result = withContext(AppDispatchers.networking) {
                 runCatching {
-                    val exportDir = File(ctx.cacheDir, "profiles").apply { mkdirs() }
+                    val exportDir = File(ctx.cacheDir, "shared_profiles").apply { mkdirs() }
                     exportDir.listFiles()?.forEach { runCatching { it.delete() } }
-                    val safeId = snapshot.id.replace(Regex("[^a-zA-Z0-9_-]"), "_").ifBlank { "profile" }
-                    val outFile = File(exportDir, "$safeId.navbeam")
+                    val fileName = ProfileFileImporter.sanitizeExportFileName(snapshot.id)
+                    val outFile = File(exportDir, fileName)
+                    val canonicalDir = exportDir.canonicalPath
+                    val canonicalFile = outFile.canonicalPath
+                    if (!canonicalFile.startsWith("$canonicalDir${File.separator}")) {
+                        throw SecurityException("Invalid export path.")
+                    }
                     outFile.writeText(DashProfileJsonCodec.toJson(snapshot), Charsets.UTF_8)
-                    FileProvider.getUriForFile(ctx, "${ctx.packageName}.fileprovider", outFile)
+                    val uri = FileProvider.getUriForFile(ctx, "${ctx.packageName}.fileprovider", outFile)
+                    uri to fileName
                 }
             }
-            result.onSuccess { uri ->
+            result.onSuccess { (uri, fileName) ->
                 val sendIntent = Intent(Intent.ACTION_SEND).apply {
                     type = "*/*"
                     putExtra(Intent.EXTRA_STREAM, uri)
                     putExtra(Intent.EXTRA_SUBJECT, "NavBeam Hardware Profile: ${snapshot.name}")
+                    clipData = ClipData.newRawUri(fileName, uri)
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 }
                 val chooser = Intent.createChooser(sendIntent, "Share ${snapshot.name}")
@@ -291,7 +307,7 @@ fun ProfileSetupScreen(
                         modifier = Modifier.size(18.dp)
                     )
                     Text(
-                        text = "Reading profile file…",
+                        text = "Loading profile…",
                         color = colors.textHi,
                         fontSize = 13.5.sp,
                         fontFamily = GeistFamily
@@ -381,7 +397,19 @@ fun ProfileSetupScreen(
                             icon = NavBeamIcons.UploadFile,
                             variant = BtnVariant.Primary,
                             size = BtnSize.Lg,
-                            enabled = !isImporting,
+                            enabled = !isImporting && !isImportingUrl,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        NavBeamButton(
+                            label = "Import URL",
+                            onClick = {
+                                urlError = null
+                                showUrlDialog = true
+                            },
+                            icon = NavBeamIcons.Link,
+                            variant = BtnVariant.Secondary,
+                            size = BtnSize.Lg,
+                            enabled = !isImporting && !isImportingUrl,
                             modifier = Modifier.fillMaxWidth()
                         )
                         NavBeamButton(
@@ -393,7 +421,7 @@ fun ProfileSetupScreen(
                             icon = NavBeamIcons.Paste,
                             variant = BtnVariant.Secondary,
                             size = BtnSize.Lg,
-                            enabled = !isImporting,
+                            enabled = !isImporting && !isImportingUrl,
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
@@ -551,6 +579,54 @@ fun ProfileSetupScreen(
                             }
                         }
                     }
+                }
+
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    NavBeamEyebrow(
+                        text = "Add Another Profile",
+                        modifier = Modifier.padding(start = 4.dp)
+                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        NavBeamButton(
+                            label = if (isImporting) "Reading…" else "Upload File",
+                            onClick = { importLauncher.launch(openDocumentMimeTypes) },
+                            icon = NavBeamIcons.UploadFile,
+                            variant = BtnVariant.Secondary,
+                            size = BtnSize.Md,
+                            enabled = !isImporting && !isImportingUrl,
+                            modifier = Modifier.weight(1f)
+                        )
+                        NavBeamButton(
+                            label = "Import URL",
+                            onClick = {
+                                urlError = null
+                                showUrlDialog = true
+                            },
+                            icon = NavBeamIcons.Link,
+                            variant = BtnVariant.Secondary,
+                            size = BtnSize.Md,
+                            enabled = !isImporting && !isImportingUrl,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    NavBeamButton(
+                        label = "Paste JSON",
+                        onClick = {
+                            pasteError = null
+                            showPasteDialog = true
+                        },
+                        icon = NavBeamIcons.Paste,
+                        variant = BtnVariant.Ghost,
+                        size = BtnSize.Sm,
+                        enabled = !isImporting && !isImportingUrl,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
             }
 
@@ -765,6 +841,156 @@ fun ProfileSetupScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showPasteDialog = false }) {
+                    Text("Cancel", color = colors.textMid)
+                }
+            }
+        )
+    }
+
+    // Import Profile from URL Dialog
+    if (showUrlDialog) {
+        AlertDialog(
+            onDismissRequest = { if (!isImportingUrl) showUrlDialog = false },
+            containerColor = colors.surf1,
+            title = {
+                Text(
+                    text = "Import Profile from URL",
+                    color = colors.textHi,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    fontFamily = GeistFamily
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = "Paste an HTTPS or GitHub profile link (.json / .navbeam):",
+                            color = colors.textLo,
+                            fontSize = 12.sp,
+                            modifier = Modifier.weight(1f)
+                        )
+                        TextButton(
+                            enabled = !isImportingUrl,
+                            onClick = {
+                                val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                                val clipText = cm?.primaryClip?.getItemAt(0)?.coerceToText(ctx)?.toString()?.trim()
+                                if (clipText.isNullOrBlank()) {
+                                    urlError = "Clipboard is empty."
+                                } else if (clipText.length > ProfileUrlImporter.MAX_URL_LENGTH) {
+                                    urlError = "URL exceeds maximum length of ${ProfileUrlImporter.MAX_URL_LENGTH} characters."
+                                } else {
+                                    urlInput = clipText
+                                    urlError = null
+                                }
+                            }
+                        ) {
+                            Text("From Clipboard", color = colors.primary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+
+                    OutlinedTextField(
+                        value = urlInput,
+                        onValueChange = {
+                            urlInput = it
+                            if (urlError != null) urlError = null
+                        },
+                        enabled = !isImportingUrl,
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                        placeholder = {
+                            Text(
+                                "https://github.com/...",
+                                color = colors.textLo,
+                                fontFamily = GeistMonoFamily,
+                                fontSize = 12.sp
+                            )
+                        },
+                        textStyle = TextStyle(
+                            color = colors.textHi,
+                            fontFamily = GeistMonoFamily,
+                            fontSize = 12.sp
+                        ),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = colors.primary,
+                            unfocusedBorderColor = colors.line2,
+                            focusedContainerColor = colors.surf2,
+                            unfocusedContainerColor = colors.surf2,
+                            cursorColor = colors.primary,
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    if (isImportingUrl) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier.padding(top = 2.dp)
+                        ) {
+                            CircularProgressIndicator(
+                                color = colors.primary,
+                                strokeWidth = 2.dp,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Text(
+                                text = "Downloading & validating profile…",
+                                color = colors.textMid,
+                                fontSize = 12.sp,
+                                fontFamily = GeistFamily
+                            )
+                        }
+                    }
+
+                    if (urlError != null) {
+                        Text(
+                            text = urlError ?: "",
+                            color = colors.alert,
+                            fontSize = 11.5.sp,
+                            lineHeight = 15.5.sp
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !isImportingUrl,
+                    onClick = {
+                        val candidateUrl = urlInput
+                        isImportingUrl = true
+                        urlError = null
+                        scope.launch {
+                            val result = ProfileUrlImporter.importFromUrl(candidateUrl)
+                            isImportingUrl = false
+                            result.onSuccess { imported ->
+                                urlError = null
+                                showUrlDialog = false
+                                urlInput = ""
+                                pendingImport = PendingProfileImport(
+                                    profile = imported.profile,
+                                    sourceLabel = imported.sourceLabel,
+                                )
+                            }.onFailure { err ->
+                                urlError = err.message ?: "Unable to import profile from URL."
+                            }
+                        }
+                    }
+                ) {
+                    Text(
+                        text = if (isImportingUrl) "Fetching…" else "Import",
+                        color = colors.primary,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    enabled = !isImportingUrl,
+                    onClick = { showUrlDialog = false }
+                ) {
                     Text("Cancel", color = colors.textMid)
                 }
             }

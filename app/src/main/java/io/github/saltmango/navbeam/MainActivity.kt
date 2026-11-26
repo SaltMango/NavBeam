@@ -23,7 +23,9 @@ class MainActivity : ComponentActivity() {
 
         Log.w("Looog", "MainActivity onCreate")
 
-        handleIntent(intent)
+        if (savedInstanceState == null) {
+            handleIntent(intent)
+        }
         setContent {
             // Root composable. AppNavigation handles internal padding and theming.
             AppNavigation(
@@ -54,10 +56,17 @@ class MainActivity : ComponentActivity() {
             Intent.ACTION_VIEW -> {
                 val uri = intent.data ?: return
                 val scheme = uri.scheme?.lowercase()
-                if (scheme == "http" || scheme == "https" || scheme == "geo") {
-                    routeViewModel.handleSharedText(uri.toString())
-                } else {
-                    appViewModel.importProfileFromUri(uri)
+                when {
+                    scheme == "navbeam" && uri.host?.lowercase() == "import" -> {
+                        val targetUrl = uri.getQueryParameter("url").orEmpty()
+                        appViewModel.importProfileFromUrl(targetUrl)
+                    }
+                    scheme == "http" || scheme == "https" || scheme == "geo" -> {
+                        routeViewModel.handleSharedText(uri.toString())
+                    }
+                    scheme == "content" || scheme == "file" -> {
+                        appViewModel.importProfileFromUri(uri)
+                    }
                 }
             }
         }

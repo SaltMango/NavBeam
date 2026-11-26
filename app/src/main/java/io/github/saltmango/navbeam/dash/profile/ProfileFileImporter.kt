@@ -13,6 +13,12 @@ data class ImportedProfilePayload(
 object ProfileFileImporter {
 
     private val ALLOWED_EXTENSIONS = setOf("json", "navbeam")
+    private val UNSAFE_FILENAME_CHARS = Regex("[^a-zA-Z0-9_-]")
+
+    fun sanitizeExportFileName(profileId: String): String {
+        val safeId = profileId.replace(UNSAFE_FILENAME_CHARS, "").take(64).ifBlank { "profile" }
+        return "$safeId.navbeam"
+    }
 
     fun validateSupportedExtension(fileName: String?) {
         val clean = fileName?.trim().orEmpty()
@@ -22,12 +28,13 @@ object ProfileFileImporter {
             )
         }
         val baseName = clean.substringAfterLast('/').substringAfterLast('\\')
-        val ext = baseName.substringAfterLast('.', missingDelimiterValue = "").lowercase()
-        if (ext.isEmpty()) {
+        val lastDot = baseName.lastIndexOf('.')
+        if (lastDot <= 0) {
             throw IllegalArgumentException(
                 "Unsupported file type. Only .json and .navbeam profile files are allowed."
             )
         }
+        val ext = baseName.substring(lastDot + 1).lowercase()
         if (ext !in ALLOWED_EXTENSIONS) {
             throw IllegalArgumentException(
                 "Unsupported file '.$ext'. Only .json and .navbeam profile files are allowed."

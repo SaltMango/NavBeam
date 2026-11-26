@@ -6,6 +6,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.saltmango.navbeam.dash.profile.DashProfile
 import io.github.saltmango.navbeam.dash.profile.ProfileFileImporter
+import io.github.saltmango.navbeam.dash.profile.ProfileUrlImporter
 import io.github.saltmango.navbeam.data.SettingsPrefs
 import io.github.saltmango.navbeam.util.AppDispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -63,6 +64,28 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 onFailure = { err ->
                     IncomingProfileImportState.Error(
                         message = err.message ?: "Unable to read the selected profile file.",
+                        sourceLabel = label,
+                    )
+                },
+            )
+        }
+    }
+
+    fun importProfileFromUrl(rawUrl: String) {
+        val label = rawUrl.trim().take(120).ifBlank { "Profile URL" }
+        _incomingProfileImport.value = IncomingProfileImportState.Loading(label)
+        viewModelScope.launch {
+            val outcome = ProfileUrlImporter.importFromUrl(rawUrl)
+            _incomingProfileImport.value = outcome.fold(
+                onSuccess = { payload ->
+                    IncomingProfileImportState.Ready(
+                        profile = payload.profile,
+                        sourceLabel = payload.sourceLabel,
+                    )
+                },
+                onFailure = { err ->
+                    IncomingProfileImportState.Error(
+                        message = err.message ?: "Unable to import profile from URL.",
                         sourceLabel = label,
                     )
                 },

@@ -26,6 +26,7 @@ import androidx.compose.material.icons.outlined.FolderOff
 import androidx.compose.material.icons.outlined.GpsFixed
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.LocalGasStation
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Mic
@@ -116,6 +117,7 @@ object NavBeamIcons {
     val Paste         = Icons.Outlined.ContentPaste
     val Verified      = Icons.Outlined.VerifiedUser
     val OpenInNew     = Icons.AutoMirrored.Outlined.OpenInNew
+    val Link          = Icons.Outlined.Link
     val Code          = Icons.Outlined.Code
     val ErrorOutline  = Icons.Outlined.ErrorOutline
     val MissingFile   = Icons.Outlined.FolderOff
