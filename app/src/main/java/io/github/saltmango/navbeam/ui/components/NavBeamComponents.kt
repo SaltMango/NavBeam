@@ -786,7 +786,7 @@ fun NavBeamScreenHeader(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         Icon(
-                            painter = painterResource(id = R.mipmap.ic_launcher_foreground),
+                            painter = painterResource(id = R.drawable.ic_navbeam_brand),
                             contentDescription = "NavBeam Logo",
                             tint = Color.Unspecified,
                             modifier = Modifier.size(24.dp),

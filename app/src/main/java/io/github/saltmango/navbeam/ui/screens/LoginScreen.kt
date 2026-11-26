@@ -67,7 +67,7 @@ fun LoginScreen(
                 verticalArrangement = Arrangement.Center,
             ) {
                 Image(
-                    painter = painterResource(id = R.mipmap.ic_launcher_foreground),
+                    painter = painterResource(id = R.drawable.ic_navbeam_brand),
                     contentDescription = "NavBeam Brand Icon",
                     modifier = Modifier.size(140.dp),
                 )

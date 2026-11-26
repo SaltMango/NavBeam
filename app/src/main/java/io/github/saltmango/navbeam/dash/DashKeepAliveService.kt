@@ -177,7 +177,7 @@ class DashKeepAliveService : Service() {
         return builder
             .setContentTitle("NavBeam — streaming to dash")
             .setContentText("Map is live on the dash. Screen can stay off.")
-            .setSmallIcon(R.mipmap.ic_launcher)
+            .setSmallIcon(R.drawable.ic_stat_navbeam)
             .setOngoing(true)
             .setContentIntent(open)
             .build()
