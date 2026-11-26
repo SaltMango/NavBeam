@@ -175,9 +175,9 @@ fun RiderGetStartedButton(
             .background(
                 Brush.horizontalGradient(
                     listOf(
-                        colors.primaryCrimson,
+                        colors.primaryDeep,
                         colors.primary,
-                        colors.primaryWarm,
+                        colors.primaryBright,
                     ),
                 ),
             )

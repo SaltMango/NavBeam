@@ -2,95 +2,139 @@ package io.github.saltmango.navbeam.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// ---- OLED Dark Mode Surfaces (Pure Black) ----
-val Bg0Dark   = Color(0xFF000000)
-val Bg1Dark   = Color(0xFF000000)
-val Surf1Dark = Color(0xFF0D0D0D)
-val Surf2Dark = Color(0xFF161616)
-val Surf3Dark = Color(0xFF1F1F1F)
+// ============================================================================
+// NavBeam Color System — OKLCH Perceptual Harmony & WCAG 2.1 AA/AAA Contrast
+// Primary Brand:   Mountain Dusk (OKLCH H ≈ 245°)
+// Secondary Brand: NavBeam Amber (OKLCH H ≈ 60°–66°, ~180° perceptual complement)
+// ============================================================================
 
-// ---- Light Mode Surfaces (Crisp Daytime Neutral) ----
-val Bg0Light   = Color(0xFFF0F1F2)
-val Bg1Light   = Color(0xFFF8F9FA)
-val Surf1Light = Color(0xFFFFFFFF)
-val Surf2Light = Color(0xFFEDF0F2)
-val Surf3Light = Color(0xFFE1E4E8)
+// ---- Mountain Dusk (Primary Brand Ramp, OKLCH H ≈ 245°) ----
+val MountainDuskLight       = Color(0xFF1E3548) // L=0.319, C=0.045, H=244.8° (Light Primary; 12.67:1 on White)
+val MountainDuskMid         = Color(0xFF162837) // L=0.269, C=0.037, H=244.9°
+val MountainDuskDark        = Color(0xFF0E1B26) // L=0.216, C=0.028, H=245.2° (Dark Surface & Dark onPrimary)
+val PrimaryBrightLight      = Color(0xFF2B4B66) // L=0.400, C=0.056, H=244.8° (9.13:1 on White)
+val PrimaryContainerLight   = Color(0xFFD3E3F0) // L=0.908, C=0.025, H=242.4°
+val OnPrimaryContainerLight = Color(0xFF0E1B26) // 13.31:1 on PrimaryContainerLight
 
-// ---- Hairlines ----
-val LineDark   = Color(0x1AFFFFFF)
-val Line2Dark  = Color(0x24FFFFFF)
-val Line3Dark  = Color(0x33FFFFFF)
+// Luminous Dark-Mode Primary Tonal Ladder (OKLCH H = 244°, AA/AAA on #0E1B26 & #1A2D3E)
+val PrimaryDark             = Color(0xFF75B5E9) // L=0.750, C=0.100, H=244.0° (7.93:1 on Surf1Dark, 6.41:1 on Surf2Dark)
+val PrimaryBrightDark       = Color(0xFF9ACCEF) // L=0.830, C=0.082, H=244.0° (10.19:1 on #0E1B26)
+val PrimaryDeepDark         = Color(0xFF5698CE) // L=0.660, C=0.105, H=244.0° (5.63:1 on #0E1B26)
+val PrimaryContainerDark    = MountainDuskLight // #1E3548
+val OnPrimaryContainerDark  = PrimaryContainerLight // #D3E3F0 (9.66:1 on #1E3548)
 
-val LineLight  = Color(0x12000000)
-val Line2Light = Color(0x1F000000)
-val Line3Light = Color(0x33000000)
+val PrimaryTintDark         = Color(0x2675B5E9) // 15% PrimaryDark
+val PrimaryTint2Dark        = Color(0x4075B5E9) // 25% PrimaryDark
+val PrimaryGlowDark         = Color(0x5975B5E9) // 35% PrimaryDark
 
-// ---- Text (Dark mode) ----
-val TextHiDark  = Color(0xFFF5F5F5)
-val TextMidDark = Color(0xFFA0A0A0)
-val TextLoDark  = Color(0xFF6B6B6B)
-val TextDisDark = Color(0xFF454545)
+val PrimaryTintLight        = Color(0x1C1E3548) // 11% MountainDuskLight
+val PrimaryTint2Light       = Color(0x301E3548) // 19% MountainDuskLight
+val PrimaryGlowLight        = Color(0x471E3548) // 28% MountainDuskLight
 
-// ---- Text (Light mode) ----
-val TextHiLight  = Color(0xFF1E293B) // Slate 900 charcoal
-val TextMidLight = Color(0xFF475569) // Slate 600 medium grey
-val TextLoLight  = Color(0xFF64748B) // Slate 500 low-emphasis grey
-val TextDisLight = Color(0xFF94A3B8) // Slate 400 disabled grey
+// ---- NavBeam Amber (Secondary / Accent, OKLCH H ≈ 60°–66°) ----
+val NavBeamAmber             = Color(0xFFFFA63D) // L=0.797, C=0.155, H=66.0° (8.95:1 on Surf1Dark)
+val NavBeamAmberDark         = Color(0xFFE08219) // L=0.694, C=0.155, H=60.7°
+val OnSecondary              = Color(0xFF1A1100) // Warm obsidian (9.58:1 on NavBeamAmber)
+val SecondaryContainerDark   = Color(0xFF4A2C00)
+val OnSecondaryContainerDark = Color(0xFFFFDCA8) // 9.72:1 on SecondaryContainerDark
 
-// ---- Brand Accent: Coral Red / Rider Ignition ----
-val Primary        = Color(0xFFFF5A5A)
-val PrimaryBright  = Color(0xFFFF8282)
-val PrimaryDeep    = Color(0xFFD94545)
-val PrimaryCrimson = Color(0xFFD63031)
-val PrimaryWarm    = Color(0xFFFF7A45)
-val PrimaryTint    = Color(0x24FF5A5A)
-val PrimaryTint2   = Color(0x3DFF5A5A)
-val PrimaryGlow    = Color(0x59FF5A5A)
-val OnPrimary      = Color(0xFFFFFFFF)
+val SecondaryLight           = Color(0xFF9A5100) // L=0.510, C=0.125, H=59.0° (5.91:1 on White, 5.05:1 on Surf2Light)
+val OnSecondaryLight         = Color(0xFFFFFFFF)
+val SecondaryContainerLight  = Color(0xFFFFE4C2)
+val OnSecondaryContainerLight = Color(0xFF2A1600) // 14.12:1 on SecondaryContainerLight
 
-// ---- Semantic Status ----
-val SuccessDark     = Color(0xFF43A047)
-val SuccessLight    = Color(0xFF16A34A)
-val SuccessTintDark = Color(0x2643A047)
-val SuccessTintLight = Color(0x1F16A34A)
+val SecondaryTintDark        = Color(0x26FFA63D)
+val SecondaryTint2Dark       = Color(0x40FFA63D)
+val SecondaryTintLight       = Color(0x1C9A5100)
+val SecondaryTint2Light      = Color(0x309A5100)
 
-val Warn          = Color(0xFFD8853E)
-val WarnLight     = Color(0xFFD97706)
-val WarnTintDark  = Color(0x21D8853E)
-val WarnTintLight = Color(0x1FD97706)
+// ---- Surfaces & Neutrals (Dark Theme — Mountain Dusk Slate Ladder) ----
+val Bg0Dark                 = Color(0xFF080F16)
+val Bg1Dark                 = Color(0xFF0A131C) // BackgroundDark (L=0.183)
+val BackgroundDark          = Bg1Dark
+val Surf1Dark               = Color(0xFF0E1B26) // SurfaceDark / MountainDuskDark (L=0.216)
+val SurfaceDark             = Surf1Dark
+val Surf2Dark               = Color(0xFF1A2D3E) // SurfaceVariantDark (L=0.289)
+val SurfaceVariantDark      = Surf2Dark
+val Surf3Dark               = Color(0xFF22384C) // L=0.335
+val OutlineDark             = Color(0xFF2E475D) // L=0.388
 
-val Alert          = Color(0xFFD45C42)
-val AlertLight     = Color(0xFFDC2626)
-val AlertTintDark  = Color(0x21D45C42)
-val AlertTintLight = Color(0x1FDC2626)
+// ---- Surfaces & Neutrals (Light Theme — Daytime Mist Slate Ladder) ----
+val Bg0Light                = Color(0xFFECF1F6)
+val Bg1Light                = Color(0xFFF4F7FA) // BackgroundLight (L=0.975)
+val BackgroundLight         = Bg1Light
+val Surf1Light              = Color(0xFFFFFFFF) // SurfaceLight (L=1.000)
+val SurfaceLight            = Surf1Light
+val Surf2Light              = Color(0xFFE7EEF5) // L=0.945
+val Surf3Light              = Color(0xFFD9E4EF) // L=0.910
 
-val Offline = Color(0xFF65686B)
+// ---- Outlines & Hairlines ----
+val LineDark                = Color(0xFF22374A)
+val Line2Dark               = OutlineDark       // #2E475D
+val Line3Dark               = Color(0xFF42607A)
+
+val LineLight               = Color(0xFFD5E0EC)
+val Line2Light              = Color(0xFFBACAD9)
+val Line3Light              = Color(0xFF93AAC0)
+
+// ---- Text / Content ----
+val OnPrimary               = Color(0xFFFFFFFF)
+val OnSurface               = Color(0xFFF1F5F9)
+val OnSurfaceVariant        = Color(0xFF94A3B8)
+
+val TextHiDark              = OnSurface         // #F1F5F9 (15.93:1 on Surf1Dark)
+val TextMidDark             = OnSurfaceVariant  // #94A3B8 (6.81:1 on Surf1Dark, 5.50:1 on Surf2Dark)
+val TextLoDark              = Color(0xFF7E95AC) // 5.64:1 on Surf1Dark, 4.56:1 on Surf2Dark (AA)
+val TextDisDark             = Color(0xFF4B6278)
+
+val TextHiLight             = MountainDuskDark  // #0E1B26 (17.45:1 on White)
+val TextMidLight            = Color(0xFF33495E) // 9.31:1 on White, 7.96:1 on Surf2Light
+val TextLoLight             = Color(0xFF52687D) // 5.78:1 on White, 4.94:1 on Surf2Light (AA)
+val TextDisLight            = Color(0xFF8CA0B3)
+
+// ---- Semantic Status (OKLCH-harmonized, AA+ on all surfaces & chips) ----
+val SuccessDark             = Color(0xFF34D399) // 9.08:1 on Surf1Dark, 6.70:1 on 15% chip
+val SuccessLight            = Color(0xFF0F6B35) // 6.61:1 on White, 5.62:1 on 11% chip
+val SuccessTintDark         = Color(0x2634D399)
+val SuccessTintLight        = Color(0x1C0F6B35)
+
+val WarnDark                = NavBeamAmber      // #FFA63D (8.95:1 on Surf1Dark, 6.77:1 on 15% chip)
+val WarnLight               = Color(0xFF9A5100) // 5.91:1 on White, 5.06:1 on 11% chip
+val WarnTintDark            = Color(0x26FFA63D)
+val WarnTintLight           = Color(0x1C9A5100)
+
+val AlertDark               = Color(0xFFF87171) // 6.31:1 on Surf1Dark, 5.13:1 on 15% chip
+val AlertLight              = Color(0xFFB91C1C) // 6.47:1 on White, 5.37:1 on 11% chip
+val AlertTintDark           = Color(0x26F87171)
+val AlertTintLight          = Color(0x1CB91C1C)
+
+val OfflineDark             = Color(0xFF647B90)
+val OfflineLight            = Color(0xFF6B8094)
 
 // ---- Overlays & Shadows ----
-val ScrimDark   = Color(0x99000000)
-val ScrimLight  = Color(0x730F172A)
-val ShadowDark  = Color(0x33000000)
-val ShadowLight = Color(0x1A0F172A)
+val ScrimDark               = Color(0xB3060C12)
+val ScrimLight              = Color(0x730E1B26)
+val ShadowDark              = Color(0x4D04090E)
+val ShadowLight             = Color(0x1A0E1B26)
 
 // ---- Hero Backdrops ----
-val HeroTopDark     = Color(0xFF15191B)
-val HeroTopLight    = Color(0xFFFFFFFF)
-val HeroBottomLight = Color(0xFFEDF0F3)
+val HeroTopDark             = MountainDuskLight // #1E3548
+val HeroBottomDark          = BackgroundDark    // #0A131C
+val HeroTopLight            = SurfaceLight      // #FFFFFF
+val HeroBottomLight         = Color(0xFFE7EFF7)
 
 // ---- Map & Dash Viewport ----
-val MapBase           = Color(0xFF0E1416)
-val MapBase2          = Color(0xFF0C1413)
-val MapRoute          = Color(0xFF4285F4)
-val FallbackRoute     = Color(0xFFA040FF)
-val DashBezelOuterDark  = Color(0xFF2E3336)
-val DashBezelInnerDark  = Color(0xFF0F1112)
-val DashBezelOuterLight = Color(0xFFE2E8F0)
-val DashBezelInnerLight = Color(0xFF94A3B8)
-val DashBgCenter        = Color(0xFF14201F)
-val DashBgMid           = Color(0xFF0C1413)
-val DashBgEdge          = Color(0xFF070B0B)
-val DashTerrain         = Color(0xFF101B1A)
-val DashRoad            = Color(0xFF1D2A2A)
-val DashBannerBg        = Color(0xD00C0C0C)
-val DashBannerText      = Color(0xFFF5F5F5)
-val DashRouteDash       = Color(0x80FFF5DD)
+val MapRoute                = Color(0xFF4285F4)
+val FallbackRoute           = Color(0xFFA040FF)
+val DashBezelOuterDark      = OutlineDark       // #2E475D
+val DashBezelInnerDark      = BackgroundDark    // #0A131C
+val DashBezelOuterLight     = PrimaryContainerLight // #D3E3F0
+val DashBezelInnerLight     = Color(0xFF8FA7BD)
+val DashBgCenter            = MountainDuskMid   // #162837
+val DashBgMid               = MountainDuskDark  // #0E1B26
+val DashBgEdge              = Color(0xFF070E14)
+val DashTerrain             = Color(0xFF12212F)
+val DashRoad                = Color(0xFF22384C)
+val DashBannerBg            = Color(0xD90A131C)
+val DashBannerText          = OnSurface         // #F1F5F9
+val DashRouteDash           = Color(0x99FFE6C4)

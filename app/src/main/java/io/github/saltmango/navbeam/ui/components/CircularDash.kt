@@ -109,7 +109,7 @@ fun CircularDash(
         if (live) {
             Canvas(Modifier.fillMaxSize()) {
                 drawCircle(
-                    color = colors.primary.copy(alpha = ringAlpha * 0.5f),
+                    color = colors.dashAccent.copy(alpha = ringAlpha * 0.5f),
                     radius = this.size.minDimension * 0.12f * ringScale,
                     center = center,
                     style = Stroke(width = 2.dp.toPx()),
@@ -123,7 +123,7 @@ fun CircularDash(
             val cy = this.size.height / 2f
             val r9 = 9.dp.toPx()
             drawCircle(color = colors.dashBgMid, radius = r9, center = Offset(cx, cy))
-            drawCircle(color = colors.primary, radius = r9, center = Offset(cx, cy), style = Stroke(1.5.dp.toPx()))
+            drawCircle(color = colors.dashAccent, radius = r9, center = Offset(cx, cy), style = Stroke(1.5.dp.toPx()))
             val path = Path().apply {
                 moveTo(cx, 2.dp.toPx())
                 lineTo(this@Canvas.size.width - 2.dp.toPx(), this@Canvas.size.height - 2.dp.toPx())
@@ -131,13 +131,13 @@ fun CircularDash(
                 lineTo(2.dp.toPx(), this@Canvas.size.height - 2.dp.toPx())
                 close()
             }
-            drawPath(path, colors.primary)
+            drawPath(path, colors.dashAccent)
         }
 
         // N compass
         Text(
             text = "N",
-            color = colors.primary,
+            color = NavBeamAmber,
             fontFamily = GeistMonoFamily,
             fontWeight = FontWeight.Bold,
             fontSize = (size.value * 0.05f).sp,
@@ -155,7 +155,7 @@ fun CircularDash(
                     .padding(top = (size.value * 0.17f).dp)
                     .clip(CircleShape)
                     .background(colors.dashBannerBg)
-                    .border(1.dp, colors.primaryTint2, CircleShape)
+                    .border(1.dp, colors.dashAccent.copy(alpha = 0.35f), CircleShape)
                     .padding(horizontal = 13.dp, vertical = 5.dp),
             ) {
                 Text(
@@ -234,7 +234,7 @@ private fun DrawScope.drawMapContents(colors: NavBeamColors) {
     }, roadPaint)
 
     val routePaint = Paint().apply {
-        color = colors.primary
+        color = colors.dashAccent
         strokeWidth = 7f
         strokeCap = StrokeCap.Round
         strokeJoin = StrokeJoin.Round
@@ -266,7 +266,7 @@ private fun DrawScope.drawTickRing(colors: NavBeamColors) {
         val r1 = (if (major) 0.9f else 0.93f) * (size.width / 2f)
         val r2 = 0.96f * (size.width / 2f)
         drawLine(
-            color = if (major) colors.primary.copy(alpha = 0.45f) else Color.White.copy(alpha = 0.13f),
+            color = if (major) colors.dashAccent.copy(alpha = 0.45f) else Color.White.copy(alpha = 0.13f),
             start = Offset(cx + cos(angle) * r1, cy + sin(angle) * r1),
             end = Offset(cx + cos(angle) * r2, cy + sin(angle) * r2),
             strokeWidth = if (major) 1.4f else 0.8f,
