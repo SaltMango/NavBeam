@@ -19,3 +19,21 @@
 
 ---
 
+## 🧪 P2 — Test Setup & Coverage
+
+- [ ] **Add Code Coverage (`kotlinx-kover`):**
+  - Add the Kover Gradle plugin to `gradle/libs.versions.toml` and `app/build.gradle.kts`.
+  - Generate Kotlin-accurate line/branch reports (`./gradlew koverHtmlReport`) and optional minimum thresholds (`koverVerify`).
+- [ ] **Add Essential Test Dependencies:**
+  - `kotlinx-coroutines-test`: test `ViewModel`s, `DashSession`, and `StateFlow`s deterministically with `StandardTestDispatcher`.
+  - `turbine`: clean assertions on `Flow`/`StateFlow` emissions.
+  - `robolectric`: run `NavBeamDb` (SQLite), `SharedPreferences`, `LocationParser`, and Compose UI tests on the JVM in seconds without an emulator.
+- [ ] **Run Tests & Lint on Every PR in GitHub Actions:**
+  - Add `.github/workflows/ci.yml` triggered on `pull_request` and `push` to `main` running `./gradlew testDebugUnitTest lintDebug`.
+  - Pairs with `CONTRIBUTING.md` PR policy and enables branch protection on `main`.
+- [ ] **Prioritize High-ROI Tests First:**
+  - **Tier 1 (Pure Kotlin, fastest):** `Mercator`, `PolylineCodec`, `RouteJsonCodec`, `MotionProfile`, `DashAuth`, `LocationParser`.
+  - **Tier 2 (Robolectric + Coroutines):** `NavBeamDb`, `RideRecorder`, `SettingsPrefs`, `RouteViewModel`, `RidesViewModel`, `DashViewModel`.
+  - **Tier 3 (Compose UI):** Smoke/interaction tests for `HomeScreen`, `RouteScreen`, and `ProfileSetupScreen` using `compose-ui-test-junit4`.
+
+
