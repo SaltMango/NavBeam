@@ -1,8 +1,10 @@
 package io.github.saltmango.navbeam.dash.profile
 
 import android.content.ContentResolver
+import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
+import java.io.File
 import java.io.InputStream
 
 data class ImportedProfilePayload(
@@ -42,6 +44,27 @@ object ProfileFileImporter {
         }
     }
 
+    fun validateExternalFilePath(
+        rawPath: String?,
+        privateDirs: List<File>,
+    ): File {
+        val trimmed = rawPath?.trim().orEmpty()
+        if (trimmed.isEmpty()) {
+            throw SecurityException("Invalid file URI path.")
+        }
+        val targetFile = File(trimmed)
+        val canonicalTarget = targetFile.canonicalPath
+        for (dir in privateDirs) {
+            val canonicalPrivateDir = dir.canonicalPath
+            if (canonicalTarget == canonicalPrivateDir ||
+                canonicalTarget.startsWith("$canonicalPrivateDir${File.separator}")
+            ) {
+                throw SecurityException("Access to app-private directories is not allowed.")
+            }
+        }
+        return targetFile
+    }
+
     fun importFromStream(
         stream: InputStream,
         sourceLabel: String? = null,
@@ -60,7 +83,21 @@ object ProfileFileImporter {
         )
     }
 
-    fun importFromUri(contentResolver: ContentResolver, uri: Uri): Result<ImportedProfilePayload> = runCatching {
+    fun importFromUri(context: Context, uri: Uri): Result<ImportedProfilePayload> = runCatching {
+        if (uri.scheme.equals("file", ignoreCase = true)) {
+            val privateDirs = listOfNotNull(
+                context.filesDir,
+                context.cacheDir,
+                context.dataDir,
+                context.codeCacheDir,
+                context.noBackupFilesDir,
+                context.externalCacheDir,
+                context.getExternalFilesDir(null),
+            )
+            validateExternalFilePath(uri.path, privateDirs)
+        }
+
+        val contentResolver = context.contentResolver
         val (displayName, reportedSize) = queryUriMetadata(contentResolver, uri)
         val resolvedName = displayName ?: uri.lastPathSegment
         validateSupportedExtension(resolvedName)

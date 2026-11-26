@@ -20,6 +20,7 @@ enum class ThemeMode { Light, Dark, System }
 sealed interface IncomingProfileImportState {
     data object Idle : IncomingProfileImportState
     data class Loading(val sourceLabel: String) : IncomingProfileImportState
+    data class UrlPrompt(val normalizedUrl: String, val targetHost: String) : IncomingProfileImportState
     data class Ready(val profile: DashProfile, val sourceLabel: String) : IncomingProfileImportState
     data class Error(val message: String, val sourceLabel: String) : IncomingProfileImportState
 }
@@ -52,7 +53,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             val app = getApplication<Application>()
             val outcome = withContext(AppDispatchers.networking) {
-                ProfileFileImporter.importFromUri(app.contentResolver, uri)
+                ProfileFileImporter.importFromUri(app, uri)
             }
             _incomingProfileImport.value = outcome.fold(
                 onSuccess = { payload ->
@@ -71,26 +72,26 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun importProfileFromUrl(rawUrl: String) {
+    /**
+     * Validates an incoming deep-link URL offline without making any network request, then prompts
+     * the user inside [ProfileSetupScreen] so they must explicitly confirm before downloading.
+     */
+    fun prepareProfileUrlImport(rawUrl: String) {
         val label = rawUrl.trim().take(120).ifBlank { "Profile URL" }
-        _incomingProfileImport.value = IncomingProfileImportState.Loading(label)
-        viewModelScope.launch {
-            val outcome = ProfileUrlImporter.importFromUrl(rawUrl)
-            _incomingProfileImport.value = outcome.fold(
-                onSuccess = { payload ->
-                    IncomingProfileImportState.Ready(
-                        profile = payload.profile,
-                        sourceLabel = payload.sourceLabel,
-                    )
-                },
-                onFailure = { err ->
-                    IncomingProfileImportState.Error(
-                        message = err.message ?: "Unable to import profile from URL.",
-                        sourceLabel = label,
-                    )
-                },
-            )
-        }
+        _incomingProfileImport.value = ProfileUrlImporter.validateAndNormalizeUrl(rawUrl).fold(
+            onSuccess = { url ->
+                IncomingProfileImportState.UrlPrompt(
+                    normalizedUrl = url.toString(),
+                    targetHost = url.host,
+                )
+            },
+            onFailure = { err ->
+                IncomingProfileImportState.Error(
+                    message = err.message ?: "Invalid profile URL.",
+                    sourceLabel = label,
+                )
+            },
+        )
     }
 
     fun clearIncomingProfileImport() {

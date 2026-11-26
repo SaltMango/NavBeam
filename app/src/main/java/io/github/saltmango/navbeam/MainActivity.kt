@@ -42,7 +42,9 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleIntent(intent: Intent?) {
-        when (intent?.action) {
+        if (intent == null) return
+        if ((intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) != 0) return
+        when (intent.action) {
             Intent.ACTION_SEND -> {
                 val streamUri = IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java)
                     ?: intent.clipData?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.uri
@@ -59,7 +61,7 @@ class MainActivity : ComponentActivity() {
                 when {
                     scheme == "navbeam" && uri.host?.lowercase() == "import" -> {
                         val targetUrl = uri.getQueryParameter("url").orEmpty()
-                        appViewModel.importProfileFromUrl(targetUrl)
+                        appViewModel.prepareProfileUrlImport(targetUrl)
                     }
                     scheme == "http" || scheme == "https" || scheme == "geo" -> {
                         routeViewModel.handleSharedText(uri.toString())

@@ -1,10 +1,16 @@
 package io.github.saltmango.navbeam.dash.profile
 
 import org.junit.Assert.*
+import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TemporaryFolder
 import java.io.ByteArrayInputStream
+import java.io.File
 
 class DashProfileJsonCodecTest {
+
+    @get:Rule
+    val tempFolder = TemporaryFolder()
 
     private val commandsJsonBlock = """
       "commands": {
@@ -415,5 +421,36 @@ class DashProfileJsonCodecTest {
         assertEquals("MyDash1.navbeam", ProfileFileImporter.sanitizeExportFileName("My Dash!@# 1"))
         assertEquals("profile.navbeam", ProfileFileImporter.sanitizeExportFileName("../..///..."))
         assertEquals("profile.navbeam", ProfileFileImporter.sanitizeExportFileName(""))
+    }
+
+    @Test
+    fun profileFileImporter_rejectsAppPrivateFilePaths() {
+        val dataDir = tempFolder.newFolder("app_data")
+        val filesDir = File(dataDir, "files").apply { mkdirs() }
+        val cacheDir = File(dataDir, "cache").apply { mkdirs() }
+        val externalDir = tempFolder.newFolder("downloads")
+        val privateDirs = listOf(filesDir, cacheDir, dataDir)
+
+        val inFiles = File(filesDir, "secret.navbeam")
+        val inCache = File(cacheDir, "shared_profiles/dash.navbeam")
+        val inData = File(dataDir, "shared_prefs/prefs.json")
+        val traversalIntoPrivate = File(externalDir, "../app_data/files/dash.navbeam")
+        val allowedExternal = File(externalDir, "dash.navbeam")
+
+        listOf(inFiles, inCache, inData, traversalIntoPrivate).forEach { blocked ->
+            val result = runCatching {
+                ProfileFileImporter.validateExternalFilePath(blocked.path, privateDirs)
+            }
+            assertTrue("Expected '${blocked.path}' to be rejected", result.isFailure)
+            assertTrue(result.exceptionOrNull() is SecurityException)
+        }
+
+        val blankResult = runCatching {
+            ProfileFileImporter.validateExternalFilePath("   ", privateDirs)
+        }
+        assertTrue(blankResult.exceptionOrNull() is SecurityException)
+
+        val okFile = ProfileFileImporter.validateExternalFilePath(allowedExternal.path, privateDirs)
+        assertEquals(allowedExternal.canonicalPath, okFile.canonicalPath)
     }
 }

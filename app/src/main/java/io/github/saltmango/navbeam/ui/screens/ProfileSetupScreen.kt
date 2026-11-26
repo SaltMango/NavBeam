@@ -100,6 +100,13 @@ fun ProfileSetupScreen(
 
     LaunchedEffect(incomingImportState) {
         when (incomingImportState) {
+            is IncomingProfileImportState.UrlPrompt -> {
+                importError = null
+                urlError = null
+                urlInput = incomingImportState.normalizedUrl
+                showUrlDialog = true
+                onConsumeIncomingImport()
+            }
             is IncomingProfileImportState.Ready -> {
                 importError = null
                 pendingImport = PendingProfileImport(
@@ -129,7 +136,7 @@ fun ProfileSetupScreen(
         importError = null
         scope.launch {
             val outcome = withContext(AppDispatchers.networking) {
-                ProfileFileImporter.importFromUri(ctx.contentResolver, uri)
+                ProfileFileImporter.importFromUri(ctx, uri)
             }
             isImporting = false
             outcome.onSuccess { imported ->
@@ -924,6 +931,20 @@ fun ProfileSetupScreen(
                         ),
                         modifier = Modifier.fillMaxWidth()
                     )
+
+                    val previewHost = remember(urlInput) {
+                        ProfileUrlImporter.validateAndNormalizeUrl(urlInput).getOrNull()?.host
+                    }
+                    if (previewHost != null) {
+                        Text(
+                            text = "Target host: $previewHost",
+                            color = colors.textMid,
+                            fontSize = 11.5.sp,
+                            fontFamily = GeistMonoFamily,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
 
                     if (isImportingUrl) {
                         Row(

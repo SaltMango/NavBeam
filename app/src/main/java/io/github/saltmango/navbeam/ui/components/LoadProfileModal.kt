@@ -79,7 +79,7 @@ fun LoadProfileModal(
         importError = null
         scope.launch {
             val outcome = withContext(AppDispatchers.networking) {
-                ProfileFileImporter.importFromUri(ctx.contentResolver, uri)
+                ProfileFileImporter.importFromUri(ctx, uri)
             }
             isImporting = false
             outcome.onSuccess { imported ->

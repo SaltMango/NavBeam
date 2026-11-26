@@ -7,13 +7,24 @@ import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.io.InputStream
-import java.net.HttpURLConnection
+import java.io.OutputStream
 import java.net.InetAddress
+import java.net.InetSocketAddress
+import java.net.Socket
+import java.net.SocketAddress
 import java.net.SocketTimeoutException
 import java.net.URI
 import java.net.URL
 import java.net.UnknownHostException
+import java.nio.channels.SocketChannel
+import javax.net.ssl.HandshakeCompletedListener
+import javax.net.ssl.HttpsURLConnection
+import javax.net.ssl.SNIHostName
 import javax.net.ssl.SSLException
+import javax.net.ssl.SSLParameters
+import javax.net.ssl.SSLSession
+import javax.net.ssl.SSLSocket
+import javax.net.ssl.SSLSocketFactory
 
 fun interface DnsResolver {
     fun resolveAll(host: String): Array<InetAddress>
@@ -42,19 +53,37 @@ data class HttpFetchResponse(
 }
 
 fun interface HttpUrlFetcher {
-    fun fetch(url: URL, connectTimeoutMs: Int, readTimeoutMs: Int): HttpFetchResponse
+    fun fetch(
+        url: URL,
+        pinnedAddress: InetAddress,
+        connectTimeoutMs: Int,
+        readTimeoutMs: Int,
+    ): HttpFetchResponse
 }
 
 object DefaultHttpUrlFetcher : HttpUrlFetcher {
-    override fun fetch(url: URL, connectTimeoutMs: Int, readTimeoutMs: Int): HttpFetchResponse {
-        val conn = (url.openConnection() as? HttpURLConnection)
+    override fun fetch(
+        url: URL,
+        pinnedAddress: InetAddress,
+        connectTimeoutMs: Int,
+        readTimeoutMs: Int,
+    ): HttpFetchResponse {
+        val conn = (url.openConnection() as? HttpsURLConnection)
             ?: throw SecurityException("Only HTTPS connections are supported.")
+        val expectedHost = url.host.removePrefix("[").removeSuffix("]")
         conn.apply {
             requestMethod = "GET"
             instanceFollowRedirects = false
             useCaches = false
             connectTimeout = connectTimeoutMs
             readTimeout = readTimeoutMs
+            hostnameVerifier = HttpsURLConnection.getDefaultHostnameVerifier()
+            sslSocketFactory = PinnedAddressSSLSocketFactory(
+                delegate = HttpsURLConnection.getDefaultSSLSocketFactory(),
+                expectedHost = expectedHost,
+                pinnedAddress = pinnedAddress,
+                connectTimeoutMs = connectTimeoutMs,
+            )
             setRequestProperty("Accept", "application/json, text/plain;q=0.9")
             setRequestProperty("User-Agent", "NavBeam-App")
         }
@@ -77,6 +106,203 @@ object DefaultHttpUrlFetcher : HttpUrlFetcher {
             closeAction = { conn.disconnect() },
         )
     }
+}
+
+internal class PinnedAddressSSLSocketFactory(
+    private val delegate: SSLSocketFactory,
+    private val expectedHost: String,
+    private val pinnedAddress: InetAddress,
+    private val connectTimeoutMs: Int,
+) : SSLSocketFactory() {
+
+    private val pinnedAddressWithHost: InetAddress =
+        InetAddress.getByAddress(expectedHost, pinnedAddress.address)
+
+    override fun getDefaultCipherSuites(): Array<String> = delegate.defaultCipherSuites
+
+    override fun getSupportedCipherSuites(): Array<String> = delegate.supportedCipherSuites
+
+    override fun createSocket(): Socket {
+        val inner = (delegate.createSocket() as? SSLSocket)
+            ?: throw SecurityException("Expected SSLSocket from delegate factory.")
+        applyTlsParameters(inner)
+        return PinnedSSLSocket(
+            delegate = inner,
+            pinnedAddressWithHost = pinnedAddressWithHost,
+            onBeforeHandshake = { applyTlsParameters(inner) },
+        )
+    }
+
+    override fun createSocket(s: Socket, host: String, port: Int, autoClose: Boolean): Socket {
+        val matchesPinned = s.isConnected && s.inetAddress.address.contentEquals(pinnedAddress.address)
+        val targetSocket = if (matchesPinned) {
+            s
+        } else {
+            try {
+                s.close()
+            } catch (_: IOException) {
+                // Best-effort close of unpinned socket
+            }
+            connectPinnedTcpSocket(port)
+        }
+        val wrapped = delegate.createSocket(targetSocket, expectedHost, port, if (matchesPinned) autoClose else true)
+        if (wrapped is SSLSocket) {
+            applyTlsParameters(wrapped)
+        }
+        return wrapped
+    }
+
+    override fun createSocket(host: String, port: Int): Socket {
+        val rawSocket = connectPinnedTcpSocket(port)
+        return wrapConnectedSocket(rawSocket, port)
+    }
+
+    override fun createSocket(host: String, port: Int, localHost: InetAddress, localPort: Int): Socket {
+        val rawSocket = connectPinnedTcpSocket(port, localHost, localPort)
+        return wrapConnectedSocket(rawSocket, port)
+    }
+
+    override fun createSocket(host: InetAddress, port: Int): Socket {
+        val rawSocket = connectPinnedTcpSocket(port)
+        return wrapConnectedSocket(rawSocket, port)
+    }
+
+    override fun createSocket(
+        address: InetAddress,
+        port: Int,
+        localAddress: InetAddress,
+        localPort: Int,
+    ): Socket {
+        val rawSocket = connectPinnedTcpSocket(port, localAddress, localPort)
+        return wrapConnectedSocket(rawSocket, port)
+    }
+
+    private fun connectPinnedTcpSocket(
+        port: Int,
+        localAddress: InetAddress? = null,
+        localPort: Int = 0,
+    ): Socket {
+        val socket = Socket()
+        try {
+            if (localAddress != null) {
+                socket.bind(InetSocketAddress(localAddress, localPort))
+            }
+            socket.connect(InetSocketAddress(pinnedAddressWithHost, port), connectTimeoutMs)
+            return socket
+        } catch (t: Throwable) {
+            try {
+                socket.close()
+            } catch (_: IOException) {
+                // Best-effort close on failed connect
+            }
+            throw t
+        }
+    }
+
+    private fun wrapConnectedSocket(rawSocket: Socket, port: Int): Socket {
+        val wrapped = delegate.createSocket(rawSocket, expectedHost, port, true)
+        if (wrapped is SSLSocket) {
+            applyTlsParameters(wrapped)
+        }
+        return wrapped
+    }
+
+    private fun applyTlsParameters(sslSocket: SSLSocket) {
+        val params = sslSocket.sslParameters
+        params.endpointIdentificationAlgorithm = "HTTPS"
+        if (!isNumericIpLiteral(expectedHost)) {
+            params.serverNames = listOf(SNIHostName(expectedHost))
+        }
+        sslSocket.sslParameters = params
+    }
+
+    private fun isNumericIpLiteral(host: String): Boolean {
+        val clean = host.trim().removePrefix("[").removeSuffix("]")
+        return clean.contains(':') || clean.all { it in '0'..'9' || it == '.' }
+    }
+}
+
+private class PinnedSSLSocket(
+    private val delegate: SSLSocket,
+    private val pinnedAddressWithHost: InetAddress,
+    private val onBeforeHandshake: () -> Unit,
+) : SSLSocket() {
+
+    override fun connect(endpoint: SocketAddress) = connect(endpoint, 0)
+
+    override fun connect(endpoint: SocketAddress, timeout: Int) {
+        val inetEndpoint = endpoint as? InetSocketAddress
+            ?: throw IOException("Unsupported socket address type.")
+        onBeforeHandshake()
+        delegate.connect(InetSocketAddress(pinnedAddressWithHost, inetEndpoint.port), timeout)
+    }
+
+    override fun bind(bindpoint: SocketAddress?) = delegate.bind(bindpoint)
+    override fun getInetAddress(): InetAddress = delegate.inetAddress
+    override fun getLocalAddress(): InetAddress = delegate.localAddress
+    override fun getPort(): Int = delegate.port
+    override fun getLocalPort(): Int = delegate.localPort
+    override fun getRemoteSocketAddress(): SocketAddress? = delegate.remoteSocketAddress
+    override fun getLocalSocketAddress(): SocketAddress? = delegate.localSocketAddress
+    override fun getChannel(): SocketChannel? = delegate.channel
+    override fun getInputStream(): InputStream = delegate.inputStream
+    override fun getOutputStream(): OutputStream = delegate.outputStream
+    override fun setTcpNoDelay(on: Boolean) { delegate.tcpNoDelay = on }
+    override fun getTcpNoDelay(): Boolean = delegate.tcpNoDelay
+    override fun setSoLinger(on: Boolean, linger: Int) = delegate.setSoLinger(on, linger)
+    override fun getSoLinger(): Int = delegate.soLinger
+    override fun sendUrgentData(data: Int) = delegate.sendUrgentData(data)
+    override fun setOOBInline(on: Boolean) { delegate.oobInline = on }
+    override fun getOOBInline(): Boolean = delegate.oobInline
+    override fun setSoTimeout(timeout: Int) { delegate.soTimeout = timeout }
+    override fun getSoTimeout(): Int = delegate.soTimeout
+    override fun setSendBufferSize(size: Int) { delegate.sendBufferSize = size }
+    override fun getSendBufferSize(): Int = delegate.sendBufferSize
+    override fun setReceiveBufferSize(size: Int) { delegate.receiveBufferSize = size }
+    override fun getReceiveBufferSize(): Int = delegate.receiveBufferSize
+    override fun setKeepAlive(on: Boolean) { delegate.keepAlive = on }
+    override fun getKeepAlive(): Boolean = delegate.keepAlive
+    override fun setTrafficClass(tc: Int) { delegate.trafficClass = tc }
+    override fun getTrafficClass(): Int = delegate.trafficClass
+    override fun setReuseAddress(on: Boolean) { delegate.reuseAddress = on }
+    override fun getReuseAddress(): Boolean = delegate.reuseAddress
+    override fun close() = delegate.close()
+    override fun shutdownInput() = delegate.shutdownInput()
+    override fun shutdownOutput() = delegate.shutdownOutput()
+    override fun isConnected(): Boolean = delegate.isConnected
+    override fun isBound(): Boolean = delegate.isBound
+    override fun isClosed(): Boolean = delegate.isClosed
+    override fun isInputShutdown(): Boolean = delegate.isInputShutdown
+    override fun isOutputShutdown(): Boolean = delegate.isOutputShutdown
+    override fun setPerformancePreferences(connectionTime: Int, latency: Int, bandwidth: Int) =
+        delegate.setPerformancePreferences(connectionTime, latency, bandwidth)
+
+    override fun getSupportedCipherSuites(): Array<String> = delegate.supportedCipherSuites
+    override fun getEnabledCipherSuites(): Array<String> = delegate.enabledCipherSuites
+    override fun setEnabledCipherSuites(suites: Array<out String>?) { delegate.enabledCipherSuites = suites }
+    override fun getSupportedProtocols(): Array<String> = delegate.supportedProtocols
+    override fun getEnabledProtocols(): Array<String> = delegate.enabledProtocols
+    override fun setEnabledProtocols(protocols: Array<out String>?) { delegate.enabledProtocols = protocols }
+    override fun getSession(): SSLSession = delegate.session
+    override fun getHandshakeSession(): SSLSession? = delegate.handshakeSession
+    override fun addHandshakeCompletedListener(listener: HandshakeCompletedListener?) =
+        delegate.addHandshakeCompletedListener(listener)
+    override fun removeHandshakeCompletedListener(listener: HandshakeCompletedListener?) =
+        delegate.removeHandshakeCompletedListener(listener)
+    override fun startHandshake() {
+        onBeforeHandshake()
+        delegate.startHandshake()
+    }
+    override fun setUseClientMode(mode: Boolean) { delegate.useClientMode = mode }
+    override fun getUseClientMode(): Boolean = delegate.useClientMode
+    override fun setNeedClientAuth(need: Boolean) { delegate.needClientAuth = need }
+    override fun getNeedClientAuth(): Boolean = delegate.needClientAuth
+    override fun setWantClientAuth(want: Boolean) { delegate.wantClientAuth = want }
+    override fun getWantClientAuth(): Boolean = delegate.wantClientAuth
+    override fun setEnableSessionCreation(flag: Boolean) { delegate.enableSessionCreation = flag }
+    override fun getEnableSessionCreation(): Boolean = delegate.enableSessionCreation
+    override fun getSSLParameters(): SSLParameters = delegate.sslParameters
+    override fun setSSLParameters(params: SSLParameters?) { delegate.sslParameters = params }
 }
 
 class ProfileUrlImporter(
@@ -157,7 +383,7 @@ class ProfileUrlImporter(
         URL(normalizedUri.toASCIIString())
     }
 
-    fun validateHostAddress(host: String) {
+    fun validateHostAddress(host: String): InetAddress {
         val lookupHost = host.trim().removePrefix("[").removeSuffix("]").lowercase()
         if (lookupHost.isEmpty()) {
             throw IllegalArgumentException("URL must include a valid hostname.")
@@ -185,6 +411,7 @@ class ProfileUrlImporter(
                 throw SecurityException("Connections to private, loopback, link-local, or multicast addresses are not allowed.")
             }
         }
+        return addresses.first()
     }
 
     suspend fun importFromUrl(rawUrl: String): Result<ImportedProfilePayload> = withContext(ioDispatcher) {
@@ -193,11 +420,12 @@ class ProfileUrlImporter(
             var redirects = 0
 
             while (true) {
-                validateHostAddress(currentUrl.host)
+                val pinnedAddress = validateHostAddress(currentUrl.host)
 
                 val nextUrl: URL? = try {
                     httpFetcher.fetch(
                         url = currentUrl,
+                        pinnedAddress = pinnedAddress,
                         connectTimeoutMs = CONNECT_TIMEOUT_MS,
                         readTimeoutMs = READ_TIMEOUT_MS,
                     ).use { response ->

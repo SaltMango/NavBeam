@@ -5,8 +5,20 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Test
 import java.io.ByteArrayInputStream
+import java.io.InputStream
+import java.io.OutputStream
 import java.net.InetAddress
+import java.net.ServerSocket
+import java.net.Socket
+import java.net.SocketAddress
 import java.net.URL
+import java.nio.channels.SocketChannel
+import javax.net.ssl.HandshakeCompletedListener
+import javax.net.ssl.SNIHostName
+import javax.net.ssl.SSLParameters
+import javax.net.ssl.SSLSession
+import javax.net.ssl.SSLSocket
+import javax.net.ssl.SSLSocketFactory
 
 class ProfileUrlImporterTest {
 
@@ -117,7 +129,7 @@ class ProfileUrlImporterTest {
 
     private fun importerWith(
         dns: DnsResolver = DnsResolver { host -> publicIp(host) },
-        fetcher: HttpUrlFetcher = HttpUrlFetcher { _, _, _ ->
+        fetcher: HttpUrlFetcher = HttpUrlFetcher { _, _, _, _ ->
             HttpFetchResponse(
                 statusCode = 200,
                 contentLength = validProfileJson.toByteArray(Charsets.UTF_8).size.toLong(),
@@ -267,7 +279,7 @@ class ProfileUrlImporterTest {
             var fetched = false
             val importer = importerWith(
                 dns = { host -> arrayOf(InetAddress.getByAddress(host, rawBytes)) },
-                fetcher = { _, _, _ ->
+                fetcher = { _, _, _, _ ->
                     fetched = true
                     error("Fetcher should never be called for SSRF address $label")
                 },
@@ -299,11 +311,117 @@ class ProfileUrlImporterTest {
     }
 
     @Test
+    fun passesValidatedPinnedAddressToFetcherIncludingRedirects() = runBlocking {
+        val originIp = InetAddress.getByAddress("origin.example", byteArrayOf(93.toByte(), 184.toByte(), 216.toByte(), 34))
+        val cdnIp = InetAddress.getByAddress("cdn.example", byteArrayOf(151.toByte(), 101.toByte(), 1.toByte(), 69))
+        val observed = mutableListOf<Pair<String, InetAddress>>()
+
+        val importer = importerWith(
+            dns = { host ->
+                when (host) {
+                    "origin.example" -> arrayOf(originIp)
+                    "cdn.example" -> arrayOf(cdnIp)
+                    else -> error("Unexpected DNS lookup for $host")
+                }
+            },
+            fetcher = { url, pinnedAddress, _, _ ->
+                observed += url.host to pinnedAddress
+                if (url.host == "origin.example") {
+                    HttpFetchResponse(302, -1L, "https://cdn.example/profile.navbeam", null)
+                } else {
+                    HttpFetchResponse(
+                        200,
+                        validProfileJson.toByteArray(Charsets.UTF_8).size.toLong(),
+                        null,
+                        ByteArrayInputStream(validProfileJson.toByteArray(Charsets.UTF_8)),
+                    )
+                }
+            },
+        )
+
+        val result = importer.importFromUrl("https://origin.example/start.navbeam")
+        assertTrue(result.isSuccess)
+        assertEquals(listOf("origin.example" to originIp, "cdn.example" to cdnIp), observed)
+    }
+
+    @Test
+    fun defaultHttpUrlFetcherRejectsNonHttpsUrls() {
+        val dummyPinned = InetAddress.getByAddress("example.com", byteArrayOf(93.toByte(), 184.toByte(), 216.toByte(), 34))
+        val thrown = runCatching {
+            DefaultHttpUrlFetcher.fetch(
+                url = URL("http://example.com/profile.navbeam"),
+                pinnedAddress = dummyPinned,
+                connectTimeoutMs = 1000,
+                readTimeoutMs = 1000,
+            )
+        }
+        assertTrue(thrown.isFailure)
+        assertTrue(thrown.exceptionOrNull() is SecurityException)
+    }
+
+    @Test
+    fun pinnedAddressSslSocketFactoryConnectsToPinnedIpAndPreservesSni() {
+        val loopback = InetAddress.getLoopbackAddress()
+        ServerSocket(0, 1, loopback).use { server ->
+            val recordedHostArgs = mutableListOf<String>()
+            var recordedWrappedSocket: Socket? = null
+            var recordedParams: SSLParameters? = null
+
+            val recordingDelegate = object : SSLSocketFactory() {
+                override fun getDefaultCipherSuites(): Array<String> = emptyArray()
+                override fun getSupportedCipherSuites(): Array<String> = emptyArray()
+                override fun createSocket(s: Socket, host: String, port: Int, autoClose: Boolean): Socket {
+                    recordedHostArgs += host
+                    recordedWrappedSocket = s
+                    return FakeSSLSocket(s).also { recordedParams = it.sslParameters }
+                }
+                override fun createSocket(host: String, port: Int): Socket = error("Unused")
+                override fun createSocket(host: String, port: Int, localHost: InetAddress, localPort: Int): Socket = error("Unused")
+                override fun createSocket(host: InetAddress, port: Int): Socket = error("Unused")
+                override fun createSocket(address: InetAddress, port: Int, localAddress: InetAddress, localPort: Int): Socket = error("Unused")
+            }
+
+            val factory = PinnedAddressSSLSocketFactory(
+                delegate = recordingDelegate,
+                expectedHost = "raw.githubusercontent.com",
+                pinnedAddress = loopback,
+                connectTimeoutMs = 1000,
+            )
+
+            // 1. Direct host/port call connects to pinned loopback IP without resolving raw.githubusercontent.com
+            factory.createSocket("raw.githubusercontent.com", server.localPort).use { sock ->
+                assertTrue(sock is SSLSocket)
+                assertEquals(loopback, recordedWrappedSocket?.inetAddress)
+                assertEquals(listOf("raw.githubusercontent.com"), recordedHostArgs)
+                assertEquals("HTTPS", recordedParams?.endpointIdentificationAlgorithm)
+                assertEquals(listOf(SNIHostName("raw.githubusercontent.com")), recordedParams?.serverNames)
+            }
+            server.accept().close()
+
+            // 2. Rebound socket connected to a different address is closed and replaced with pinned loopback socket
+            val unpinnedSocket = object : Socket() {
+                var closedByFactory = false
+                override fun isConnected(): Boolean = true
+                override fun getInetAddress(): InetAddress =
+                    InetAddress.getByAddress("evil", byteArrayOf(10, 0, 0, 99))
+                override fun close() {
+                    closedByFactory = true
+                }
+            }
+            factory.createSocket(unpinnedSocket, "raw.githubusercontent.com", server.localPort, true).use {
+                assertTrue("Unpinned rebound socket must be closed", unpinnedSocket.closedByFactory)
+                assertEquals(loopback, recordedWrappedSocket?.inetAddress)
+            }
+            server.accept().close()
+        }
+    }
+
+    @Test
     fun validatesRedirectsAndEnforcesMax2Hops() = runBlocking {
         // 1. Valid 2-hop HTTPS redirect succeeds
         val requestedUrls = mutableListOf<String>()
         val twoHopImporter = importerWith(
-            fetcher = HttpUrlFetcher { url, _, _ ->
+            fetcher = HttpUrlFetcher { url, _, _, _ ->
                 requestedUrls += url.toString()
                 when (requestedUrls.size) {
                     1 -> HttpFetchResponse(302, -1L, "https://cdn.example.com/step2.navbeam", null)
@@ -324,7 +442,7 @@ class ProfileUrlImporterTest {
 
         // 2. 3-hop redirect exceeds MAX_REDIRECTS (2) and fails
         val threeHopImporter = importerWith(
-            fetcher = HttpUrlFetcher { _, _, _ ->
+            fetcher = HttpUrlFetcher { _, _, _, _ ->
                 HttpFetchResponse(302, -1L, "https://cdn.example.com/next.navbeam", null)
             },
         )
@@ -334,7 +452,7 @@ class ProfileUrlImporterTest {
 
         // 3. Redirect to HTTP is rejected
         val downgradeImporter = importerWith(
-            fetcher = HttpUrlFetcher { _, _, _ ->
+            fetcher = HttpUrlFetcher { _, _, _, _ ->
                 HttpFetchResponse(302, -1L, "http://cdn.example.com/profile.navbeam", null)
             },
         )
@@ -344,14 +462,14 @@ class ProfileUrlImporterTest {
 
         // 4. Redirect to SSRF target is rejected before fetching redirect target
         val ssrfRedirectImporter = importerWith(
-            dns = DnsResolver { host ->
+            dns = { host ->
                 if (host == "127.0.0.1" || host == "internal.example") {
                     arrayOf(InetAddress.getByAddress(host, byteArrayOf(192.toByte(), 168.toByte(), 1, 10)))
                 } else {
                     publicIp(host)
                 }
             },
-            fetcher = HttpUrlFetcher { url, _, _ ->
+            fetcher = { url, _, _, _ ->
                 if (url.host == "internal.example") {
                     error("Must never connect to internal redirect target")
                 }
@@ -364,7 +482,7 @@ class ProfileUrlImporterTest {
 
         // 5. Redirect to non-.json/.navbeam target is rejected
         val nonProfileRedirectImporter = importerWith(
-            fetcher = { _, _, _ ->
+            fetcher = { _, _, _, _ ->
                 HttpFetchResponse(302, -1L, "https://cdn.example.com/payload.apk", null)
             },
         )
@@ -378,7 +496,7 @@ class ProfileUrlImporterTest {
         // 1. Oversized Content-Length rejected before reading stream
         var streamReadAttempted = false
         val headerCapImporter = importerWith(
-            fetcher = HttpUrlFetcher { _, _, _ ->
+            fetcher = HttpUrlFetcher { _, _, _, _ ->
                 HttpFetchResponse(
                     statusCode = 200,
                     contentLength = (DashProfileJsonCodec.MAX_PROFILE_BYTES + 1).toLong(),
@@ -400,7 +518,7 @@ class ProfileUrlImporterTest {
         // 2. Chunked response (Content-Length = -1) > 64 KB throws SecurityException during stream read
         val oversizedChunk = ByteArray(DashProfileJsonCodec.MAX_PROFILE_BYTES + 1) { ' '.code.toByte() }
         val streamCapImporter = importerWith(
-            fetcher = HttpUrlFetcher { _, _, _ ->
+            fetcher = HttpUrlFetcher { _, _, _, _ ->
                 HttpFetchResponse(
                     statusCode = 200,
                     contentLength = -1L,
@@ -425,7 +543,7 @@ class ProfileUrlImporterTest {
         // Invalid profile JSON (public WAN gateway IP) must fail DashProfileValidator
         val maliciousJson = validProfileJson.replace("\"gatewayIp\": \"10.0.0.1\"", "\"gatewayIp\": \"8.8.8.8\"")
         val badProfileImporter = importerWith(
-            fetcher = HttpUrlFetcher { _, _, _ ->
+            fetcher = HttpUrlFetcher { _, _, _, _ ->
                 HttpFetchResponse(
                     statusCode = 200,
                     contentLength = maliciousJson.toByteArray(Charsets.UTF_8).size.toLong(),
@@ -437,5 +555,37 @@ class ProfileUrlImporterTest {
         val badRes = badProfileImporter.importFromUrl("https://example.com/evil.navbeam")
         assertTrue(badRes.isFailure)
         assertTrue(badRes.exceptionOrNull() is SecurityException)
+    }
+
+    private class FakeSSLSocket(private val wrapped: Socket) : SSLSocket() {
+        private var params = SSLParameters()
+        override fun close() = wrapped.close()
+        override fun connect(endpoint: SocketAddress?) {}
+        override fun connect(endpoint: SocketAddress?, timeout: Int) {}
+        override fun getInputStream(): InputStream = wrapped.getInputStream()
+        override fun getOutputStream(): OutputStream = wrapped.getOutputStream()
+        override fun getChannel(): SocketChannel? = null
+        override fun getSupportedCipherSuites(): Array<String> = emptyArray()
+        override fun getEnabledCipherSuites(): Array<String> = emptyArray()
+        override fun setEnabledCipherSuites(suites: Array<out String>?) {}
+        override fun getSupportedProtocols(): Array<String> = emptyArray()
+        override fun getEnabledProtocols(): Array<String> = emptyArray()
+        override fun setEnabledProtocols(protocols: Array<out String>?) {}
+        override fun getSession(): SSLSession = error("Unused")
+        override fun addHandshakeCompletedListener(listener: HandshakeCompletedListener?) {}
+        override fun removeHandshakeCompletedListener(listener: HandshakeCompletedListener?) {}
+        override fun startHandshake() {}
+        override fun setUseClientMode(mode: Boolean) {}
+        override fun getUseClientMode(): Boolean = true
+        override fun setNeedClientAuth(need: Boolean) {}
+        override fun getNeedClientAuth(): Boolean = false
+        override fun setWantClientAuth(want: Boolean) {}
+        override fun getWantClientAuth(): Boolean = false
+        override fun setEnableSessionCreation(flag: Boolean) {}
+        override fun getEnableSessionCreation(): Boolean = true
+        override fun getSSLParameters(): SSLParameters = params
+        override fun setSSLParameters(params: SSLParameters?) {
+            if (params != null) this.params = params
+        }
     }
 }
