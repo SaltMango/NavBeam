@@ -199,7 +199,7 @@ fun ProfileSetupScreen(
             .fillMaxSize()
             .background(colors.bg1)
     ) {
-        ScreenHeader(
+        NavBeamScreenHeader(
             eyebrow = if (isOnboarding) "Setup" else "Configuration",
             title = "Hardware Profile",
             hint = if (isOnboarding)
@@ -252,7 +252,7 @@ fun ProfileSetupScreen(
             }
 
             // 2. Import Card (Upload .json file or Paste JSON + inline error banner)
-            navBeamCard(modifier = Modifier.fillMaxWidth(), padding = 16.dp) {
+            NavBeamCard(modifier = Modifier.fillMaxWidth(), padding = 16.dp) {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -277,7 +277,7 @@ fun ProfileSetupScreen(
                         }
                         if (isImporting) {
                             CircularProgressIndicator(
-                                color = Primary,
+                                color = colors.primary,
                                 strokeWidth = 2.dp,
                                 modifier = Modifier.size(20.dp)
                             )
@@ -290,14 +290,14 @@ fun ProfileSetupScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(Alert.copy(alpha = 0.12f))
-                                .border(1.dp, Alert.copy(alpha = 0.35f), RoundedCornerShape(12.dp))
+                                .background(colors.alertTint)
+                                .border(1.dp, colors.alert.copy(alpha = 0.35f), RoundedCornerShape(12.dp))
                                 .padding(12.dp)
                         ) {
                             Icon(
                                 imageVector = NavBeamIcons.ErrorOutline,
                                 contentDescription = null,
-                                tint = Alert,
+                                tint = colors.alert,
                                 modifier = Modifier
                                     .padding(top = 1.dp)
                                     .size(18.dp)
@@ -306,7 +306,7 @@ fun ProfileSetupScreen(
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = "Profile rejected",
-                                    color = Alert,
+                                    color = colors.alert,
                                     fontSize = 12.5.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     fontFamily = GeistFamily
@@ -337,7 +337,7 @@ fun ProfileSetupScreen(
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        navBeamBtn(
+                        NavBeamButton(
                             label = if (isImporting) "Reading…" else "Upload .json",
                             onClick = { importLauncher.launch(openDocumentMimeTypes) },
                             icon = NavBeamIcons.UploadFile,
@@ -346,7 +346,7 @@ fun ProfileSetupScreen(
                             enabled = !isImporting,
                             modifier = Modifier.weight(1f)
                         )
-                        navBeamBtn(
+                        NavBeamButton(
                             label = "Paste JSON",
                             onClick = {
                                 pasteError = null
@@ -365,12 +365,12 @@ fun ProfileSetupScreen(
             // 3. Saved Profiles List
             if (availableProfiles.isNotEmpty()) {
                 Column(modifier = Modifier.fillMaxWidth()) {
-                    Eyebrow(
+                    NavBeamEyebrow(
                         text = "Saved Profiles (${availableProfiles.size})",
                         modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
                     )
 
-                    navBeamCard(modifier = Modifier.fillMaxWidth(), padding = 6.dp) {
+                    NavBeamCard(modifier = Modifier.fillMaxWidth(), padding = 6.dp) {
                         Column {
                             availableProfiles.forEachIndexed { index, summary ->
                                 val isSelected = summary.id == activeProfile.id
@@ -394,7 +394,7 @@ fun ProfileSetupScreen(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .clip(RoundedCornerShape(12.dp))
-                                        .background(if (isSelected) PrimaryTint else Color.Transparent)
+                                        .background(if (isSelected) colors.primaryTint else Color.Transparent)
                                         .clickable {
                                             val stage = dashViewModel?.ui?.value?.stage
                                             val hasActiveConn = stage != null &&
@@ -414,10 +414,10 @@ fun ProfileSetupScreen(
                                         modifier = Modifier
                                             .size(20.dp)
                                             .clip(CircleShape)
-                                            .background(if (isSelected) Primary else Color.Transparent)
+                                            .background(if (isSelected) colors.primary else Color.Transparent)
                                             .border(
                                                 width = 1.5.dp,
-                                                color = if (isSelected) Primary else colors.line3,
+                                                color = if (isSelected) colors.primary else colors.line3,
                                                 shape = CircleShape
                                             )
                                     ) {
@@ -425,7 +425,7 @@ fun ProfileSetupScreen(
                                             Icon(
                                                 imageVector = NavBeamIcons.Check,
                                                 contentDescription = "Active",
-                                                tint = OnPrimary,
+                                                tint = colors.onPrimary,
                                                 modifier = Modifier.size(13.dp)
                                             )
                                         }
@@ -437,7 +437,7 @@ fun ProfileSetupScreen(
                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                             Text(
                                                 text = summary.name,
-                                                color = if (isSelected) Primary else colors.textHi,
+                                                color = if (isSelected) colors.primary else colors.textHi,
                                                 fontSize = 14.5.sp,
                                                 fontWeight = FontWeight.SemiBold,
                                                 fontFamily = GeistFamily,
@@ -501,14 +501,14 @@ fun ProfileSetupScreen(
                                         Icon(
                                             imageVector = NavBeamIcons.Trash,
                                             contentDescription = "Delete profile",
-                                            tint = Alert,
+                                            tint = colors.alert,
                                             modifier = Modifier.size(17.dp)
                                         )
                                     }
                                 }
 
                                 if (index < availableProfiles.size - 1) {
-                                    navBeamDivider(Modifier.padding(horizontal = 8.dp))
+                                    NavBeamDivider(Modifier.padding(horizontal = 8.dp))
                                 }
                             }
                         }
@@ -517,7 +517,7 @@ fun ProfileSetupScreen(
             }
 
             // 4. Resources & Schema Template Card
-            navBeamCard(modifier = Modifier.fillMaxWidth(), padding = 16.dp) {
+            NavBeamCard(modifier = Modifier.fillMaxWidth(), padding = 16.dp) {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(
@@ -558,7 +558,7 @@ fun ProfileSetupScreen(
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        navBeamBtn(
+                        NavBeamButton(
                             label = "GitHub Repo",
                             onClick = { openExternalUrl(COMMUNITY_GITHUB_URL) },
                             icon = NavBeamIcons.OpenInNew,
@@ -566,7 +566,7 @@ fun ProfileSetupScreen(
                             size = BtnSize.Sm,
                             modifier = Modifier.weight(1f)
                         )
-                        navBeamBtn(
+                        NavBeamButton(
                             label = "JSON Template",
                             onClick = { openExternalUrl(TEMPLATE_SCHEMA_URL) },
                             icon = NavBeamIcons.Code,
@@ -588,7 +588,7 @@ fun ProfileSetupScreen(
                 .background(colors.surf1)
                 .navigationBarsPadding()
         ) {
-            navBeamDivider()
+            NavBeamDivider()
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -597,7 +597,7 @@ fun ProfileSetupScreen(
             ) {
                 val hasProfile = activeProfile.isConfigured
                 if (!hasProfile && isOnboarding && onSkip != null) {
-                    navBeamBtn(
+                    NavBeamButton(
                         label = "Skip for now · Do it later",
                         onClick = onSkip,
                         variant = BtnVariant.Secondary,
@@ -617,7 +617,7 @@ fun ProfileSetupScreen(
                         allPermissionsGranted -> "Continue to NavBeam"
                         else -> "Continue & Grant Permissions"
                     }
-                    navBeamBtn(
+                    NavBeamButton(
                         label = ctaLabel,
                         onClick = { handleContinue() },
                         enabled = hasProfile,
@@ -681,7 +681,7 @@ fun ProfileSetupScreen(
                                 }
                             }
                         ) {
-                            Text("From Clipboard", color = Primary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                            Text("From Clipboard", color = colors.primary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                         }
                     }
 
@@ -707,11 +707,11 @@ fun ProfileSetupScreen(
                         minLines = 6,
                         maxLines = 10,
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Primary,
+                            focusedBorderColor = colors.primary,
                             unfocusedBorderColor = colors.line2,
                             focusedContainerColor = colors.surf2,
                             unfocusedContainerColor = colors.surf2,
-                            cursorColor = Primary,
+                            cursorColor = colors.primary,
                         ),
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -719,7 +719,7 @@ fun ProfileSetupScreen(
                     if (pasteError != null) {
                         Text(
                             text = pasteError ?: "",
-                            color = Alert,
+                            color = colors.alert,
                             fontSize = 11.5.sp,
                             lineHeight = 15.5.sp
                         )
@@ -748,7 +748,7 @@ fun ProfileSetupScreen(
                         }
                     }
                 ) {
-                    Text("Validate", color = Primary, fontWeight = FontWeight.SemiBold)
+                    Text("Validate", color = colors.primary, fontWeight = FontWeight.SemiBold)
                 }
             },
             dismissButton = {
@@ -776,7 +776,7 @@ fun ProfileSetupScreen(
                     Icon(
                         imageVector = NavBeamIcons.Verified,
                         contentDescription = null,
-                        tint = Primary,
+                        tint = colors.primary,
                         modifier = Modifier.size(20.dp)
                     )
                     Spacer(Modifier.width(8.dp))
@@ -799,7 +799,7 @@ fun ProfileSetupScreen(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    navBeamCard(modifier = Modifier.fillMaxWidth(), padding = 12.dp) {
+                    NavBeamCard(modifier = Modifier.fillMaxWidth(), padding = 12.dp) {
                         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text(
                                 text = candidate.name,
@@ -826,7 +826,7 @@ fun ProfileSetupScreen(
                                     fontSize = 12.sp
                                 )
                             }
-                            navBeamDivider(Modifier.padding(vertical = 4.dp))
+                            NavBeamDivider(Modifier.padding(vertical = 4.dp))
                             VerifySpecLine(
                                 label = "Display",
                                 value = "${candidate.display.width}×${candidate.display.height} ($shapeLabel) · ${candidate.display.activeBitrateBps / 1000} kbps"
@@ -854,19 +854,19 @@ fun ProfileSetupScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(10.dp))
-                            .background(PrimaryTint)
+                            .background(colors.primaryTint)
                             .padding(horizontal = 10.dp, vertical = 8.dp)
                     ) {
                         Icon(
                             imageVector = NavBeamIcons.Check,
                             contentDescription = null,
-                            tint = Primary,
+                            tint = colors.primary,
                             modifier = Modifier.size(15.dp)
                         )
                         Spacer(Modifier.width(8.dp))
                         Text(
                             text = "Sanitation passed: ≤ 64 KB UTF-8, private IPv4 & safe port bounds.",
-                            color = Primary,
+                            color = colors.primary,
                             fontSize = 11.5.sp,
                             fontWeight = FontWeight.Medium,
                             lineHeight = 15.sp
@@ -896,7 +896,7 @@ fun ProfileSetupScreen(
                             }
                     }
                 ) {
-                    Text("Activate Profile", color = Primary, fontWeight = FontWeight.SemiBold)
+                    Text("Activate Profile", color = colors.primary, fontWeight = FontWeight.SemiBold)
                 }
             },
             dismissButton = {
@@ -929,7 +929,7 @@ fun ProfileSetupScreen(
                         profileChangePrompt = null
                     }
                 ) {
-                    Text("Disconnect & Apply", color = Alert, fontWeight = FontWeight.SemiBold)
+                    Text("Disconnect & Apply", color = colors.alert, fontWeight = FontWeight.SemiBold)
                 }
             },
             dismissButton = {
@@ -944,7 +944,7 @@ fun ProfileSetupScreen(
 @Composable
 private fun EmptyProfileHeroCard() {
     val colors = NavBeamTheme.colors
-    navBeamCard(glow = true, modifier = Modifier.fillMaxWidth(), padding = 16.dp) {
+    NavBeamCard(glow = true, modifier = Modifier.fillMaxWidth(), padding = 16.dp) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -957,12 +957,12 @@ private fun EmptyProfileHeroCard() {
                         modifier = Modifier
                             .size(40.dp)
                             .clip(RoundedCornerShape(12.dp))
-                            .background(PrimaryTint)
+                            .background(colors.primaryTint)
                     ) {
                         Icon(
                             imageVector = NavBeamIcons.Dash,
                             contentDescription = null,
-                            tint = Primary,
+                            tint = colors.primary,
                             modifier = Modifier.size(22.dp)
                         )
                     }
@@ -982,7 +982,7 @@ private fun EmptyProfileHeroCard() {
                         )
                     }
                 }
-                navBeamChip(label = "REQUIRED", tone = ChipTone.Warn, dot = true)
+                NavBeamChip(label = "REQUIRED", tone = ChipTone.Warn, dot = true)
             }
 
             Text(
@@ -1024,7 +1024,7 @@ private fun ActiveProfileHeroCard(profile: DashProfile) {
         else -> profile.protocol.authType
     }
 
-    navBeamCard(glow = true, modifier = Modifier.fillMaxWidth(), padding = 16.dp) {
+    NavBeamCard(glow = true, modifier = Modifier.fillMaxWidth(), padding = 16.dp) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -1035,12 +1035,12 @@ private fun ActiveProfileHeroCard(profile: DashProfile) {
                     modifier = Modifier
                         .size(40.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(PrimaryTint)
+                        .background(colors.primaryTint)
                 ) {
                     Icon(
                         imageVector = NavBeamIcons.Dash,
                         contentDescription = null,
-                        tint = Primary,
+                        tint = colors.primary,
                         modifier = Modifier.size(22.dp)
                     )
                 }
@@ -1070,7 +1070,7 @@ private fun ActiveProfileHeroCard(profile: DashProfile) {
                     )
                 }
                 Spacer(Modifier.width(8.dp))
-                navBeamChip(label = "ACTIVE", tone = ChipTone.Primary, dot = true)
+                NavBeamChip(label = "ACTIVE", tone = ChipTone.Primary, dot = true)
             }
 
             if (profile.description.isNotBlank()) {
@@ -1144,7 +1144,7 @@ private fun ProfileCapabilityRow(title: String, detail: String) {
             modifier = Modifier
                 .size(6.dp)
                 .clip(CircleShape)
-                .background(Primary)
+                .background(colors.primary)
         )
         Spacer(Modifier.width(10.dp))
         Column {

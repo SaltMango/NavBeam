@@ -44,7 +44,7 @@ object SettingsPrefs {
     }
 
     fun getTheme(context: Context): String =
-        prefs(context).getString(KEY_THEME, "On") ?: "On"
+        prefs(context).getString(KEY_THEME, "System") ?: "System"
 
     fun setTheme(context: Context, value: String) {
         prefs(context).edit().putString(KEY_THEME, value).apply()

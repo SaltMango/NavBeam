@@ -149,11 +149,11 @@ fun HomeScreen(
 
     // 2. Dash status mapping (avoiding trademarks)
     val status = when {
-        dashUi.stage == ConnStage.STREAMING -> Triple("Streaming Live Map", "Active on motorcycle display", Primary)
-        dashUi.stage == ConnStage.CONNECTED -> Triple("Motorcycle Connected", "Link established", Primary)
-        dashUi.stage == ConnStage.WIFI || dashUi.stage == ConnStage.AUTH -> Triple("Searching…", "Establishing link to motorcycle", Warn)
-        dashUi.stage == ConnStage.ERROR -> Triple("Connection Error", dashUi.errorMessage ?: "Check display power & proximity", Alert)
-        else -> Triple("Offline", "Bike not connected", Offline)
+        dashUi.stage == ConnStage.STREAMING -> Triple("Streaming Live Map", "Active on motorcycle display", colors.primary)
+        dashUi.stage == ConnStage.CONNECTED -> Triple("Motorcycle Connected", "Link established", colors.primary)
+        dashUi.stage == ConnStage.WIFI || dashUi.stage == ConnStage.AUTH -> Triple("Searching…", "Establishing link to motorcycle", colors.warn)
+        dashUi.stage == ConnStage.ERROR -> Triple("Connection Error", dashUi.errorMessage ?: "Check display power & proximity", colors.alert)
+        else -> Triple("Offline", "Bike not connected", colors.offline)
     }
     val (statusLabel, statusSub, statusDot) = status
 
@@ -212,12 +212,8 @@ fun HomeScreen(
         modifier = Modifier.fillMaxSize()
     ) {
 
-        // ── TOP APP BAR using ScreenHeader component ──────────────────────────
-        ScreenHeader(
-            wordmark = true,
-        )
+        NavBeamScreenHeader(wordmark = true)
 
-        // ── SCROLLABLE CONTENT ────────────────────────────────────────────────
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -230,7 +226,7 @@ fun HomeScreen(
             // Active Route HUD Card
             val activeDest = routeState.destination
             if (dashUi.stage == ConnStage.STREAMING && activeDest != null) {
-                navBeamCard(
+                NavBeamCard(
                     glow = true,
                     padding = 16.dp,
                     modifier = Modifier.fillMaxWidth(),
@@ -242,12 +238,12 @@ fun HomeScreen(
                                 modifier = Modifier
                                     .size(42.dp)
                                     .clip(RoundedCornerShape(10.dp))
-                                    .background(Primary.copy(alpha = 0.12f))
+                                    .background(colors.primaryTint)
                             ) {
                                 Icon(
                                     imageVector = NavBeamIcons.Navi,
                                     contentDescription = "Active Navigation",
-                                    tint = Primary,
+                                    tint = colors.primary,
                                     modifier = Modifier.size(20.dp),
                                 )
                             }
@@ -255,11 +251,8 @@ fun HomeScreen(
                             Column(Modifier.weight(1f)) {
                                 Text(
                                     text = "ACTIVE GUIDANCE",
-                                    color = Primary,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    fontFamily = GeistMonoFamily,
-                                    letterSpacing = 0.8.sp,
+                                    color = colors.primary,
+                                    style = NavBeamTheme.typography.badge,
                                 )
                                 Spacer(Modifier.height(2.dp))
                                 Text(
@@ -272,21 +265,7 @@ fun HomeScreen(
                                     overflow = TextOverflow.Ellipsis
                                 )
                             }
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .background(Primary.copy(alpha = 0.12f))
-                                    .padding(horizontal = 6.dp, vertical = 2.dp)
-                            ) {
-                                Text(
-                                    text = "LIVE",
-                                    color = Primary,
-                                    fontSize = 9.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    fontFamily = GeistMonoFamily,
-                                    letterSpacing = 0.5.sp
-                                )
-                            }
+                            NavBeamBadge(label = "LIVE", tone = ChipTone.Primary)
                         }
 
                         val metrics = listOfNotNull(
@@ -297,7 +276,7 @@ fun HomeScreen(
 
                         if (metrics.isNotEmpty()) {
                             Spacer(Modifier.height(12.dp))
-                            navBeamDivider()
+                            NavBeamDivider()
                             Spacer(Modifier.height(10.dp))
                             Text(
                                 text = metrics,
@@ -314,7 +293,7 @@ fun HomeScreen(
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            navBeamBtn(
+                            NavBeamButton(
                                 label = "Stop Navigation",
                                 onClick = {
                                     dashViewModel.stopProjection()
@@ -325,7 +304,7 @@ fun HomeScreen(
                                 size = BtnSize.Sm,
                                 modifier = Modifier.weight(1f)
                             )
-                            navBeamBtn(
+                            NavBeamButton(
                                 label = "Resume View",
                                 onClick = { onNavigate("dash") },
                                 icon = NavBeamIcons.Navi,
@@ -340,7 +319,7 @@ fun HomeScreen(
 
             // Hardware Profile Missing Banner (if skipped during onboarding)
             if (!activeProfile.isConfigured) {
-                navBeamCard(
+                NavBeamCard(
                     glow = true,
                     padding = 14.dp,
                     onClick = { onNavigate("profile_setup") },
@@ -352,12 +331,12 @@ fun HomeScreen(
                             modifier = Modifier
                                 .size(38.dp)
                                 .clip(RoundedCornerShape(10.dp))
-                                .background(PrimaryTint)
+                                .background(colors.primaryTint)
                         ) {
                             Icon(
                                 imageVector = NavBeamIcons.Wrench,
                                 contentDescription = "Hardware Profile Required",
-                                tint = Primary,
+                                tint = colors.primary,
                                 modifier = Modifier.size(18.dp),
                             )
                         }
@@ -365,11 +344,8 @@ fun HomeScreen(
                         Column(Modifier.weight(1f)) {
                             Text(
                                 text = "HARDWARE PROFILE NEEDED",
-                                color = Primary,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                fontFamily = GeistMonoFamily,
-                                letterSpacing = 0.8.sp,
+                                color = colors.primary,
+                                style = NavBeamTheme.typography.badge,
                             )
                             Spacer(Modifier.height(2.dp))
                             Text(
@@ -392,7 +368,7 @@ fun HomeScreen(
 
             // 0. Maps API Key Warning
             if (!hasMapsKey) {
-                navBeamCard(
+                NavBeamCard(
                     glow = true,
                     padding = 14.dp,
                     onClick = { showApiKeyDialog = true },
@@ -404,12 +380,12 @@ fun HomeScreen(
                             modifier = Modifier
                                 .size(38.dp)
                                 .clip(RoundedCornerShape(10.dp))
-                                .background(Alert.copy(alpha = 0.12f))
+                                .background(colors.alertTint)
                         ) {
                             Icon(
                                 imageVector = NavBeamIcons.LocationPin,
                                 contentDescription = "Maps Key Warning",
-                                tint = Alert,
+                                tint = colors.alert,
                                 modifier = Modifier.size(18.dp),
                             )
                         }
@@ -417,11 +393,8 @@ fun HomeScreen(
                         Column(Modifier.weight(1f)) {
                             Text(
                                 text = "MAPS API KEY REQUIRED",
-                                color = Alert,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                fontFamily = GeistMonoFamily,
-                                letterSpacing = 0.8.sp,
+                                color = colors.alert,
+                                style = NavBeamTheme.typography.badge,
                             )
                             Spacer(Modifier.height(2.dp))
                             Text(
@@ -444,7 +417,7 @@ fun HomeScreen(
 
             // Battery Optimization Warning
             if (!batteryOk) {
-                navBeamCard(
+                NavBeamCard(
                     glow = true,
                     padding = 14.dp,
                     onClick = {
@@ -465,12 +438,12 @@ fun HomeScreen(
                             modifier = Modifier
                                 .size(38.dp)
                                 .clip(RoundedCornerShape(10.dp))
-                                .background(Warn.copy(alpha = 0.12f))
+                                .background(colors.warnTint)
                         ) {
                             Icon(
                                 imageVector = NavBeamIcons.Zap,
                                 contentDescription = "Battery Optimization Warning",
-                                tint = Warn,
+                                tint = colors.warn,
                                 modifier = Modifier.size(18.dp),
                             )
                         }
@@ -478,11 +451,8 @@ fun HomeScreen(
                         Column(Modifier.weight(1f)) {
                             Text(
                                 text = "BATTERY OPTIMIZATION ACTIVE",
-                                color = Warn,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                fontFamily = GeistMonoFamily,
-                                letterSpacing = 0.8.sp,
+                                color = colors.warn,
+                                style = NavBeamTheme.typography.badge,
                             )
                             Spacer(Modifier.height(2.dp))
                             Text(
@@ -505,7 +475,7 @@ fun HomeScreen(
 
 
             // 2. Connection Card — full card with inline connect button
-            navBeamCard(
+            NavBeamCard(
                 glow = isConnected,
                 padding = 0.dp,
                 modifier = Modifier.fillMaxWidth(),
@@ -519,7 +489,6 @@ fun HomeScreen(
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp, vertical = 16.dp)
                     ) {
-                        // Animated icon with glow rings
                         Box(
                             contentAlignment = Alignment.Center,
                             modifier = Modifier.size(52.dp)
@@ -529,13 +498,13 @@ fun HomeScreen(
                                     Modifier
                                         .size(50.dp)
                                         .clip(CircleShape)
-                                        .background(Primary.copy(alpha = 0.12f * pulseAlpha))
+                                        .background(colors.primary.copy(alpha = 0.12f * pulseAlpha))
                                 )
                                 Box(
                                     Modifier
                                         .size(40.dp)
                                         .clip(CircleShape)
-                                        .background(Primary.copy(alpha = 0.2f))
+                                        .background(colors.primary.copy(alpha = 0.2f))
                                 )
                             }
                             Box(
@@ -544,7 +513,7 @@ fun HomeScreen(
                                     .size(38.dp)
                                     .clip(RoundedCornerShape(12.dp))
                                     .background(
-                                        if (isConnected) Primary
+                                        if (isConnected) colors.primary
                                         else colors.surf2
                                     )
                                     .border(
@@ -556,7 +525,7 @@ fun HomeScreen(
                                 Icon(
                                     imageVector = if (isConnected) NavBeamIcons.Motor else NavBeamIcons.Wifi,
                                     contentDescription = null,
-                                    tint = if (isConnected) OnPrimary else colors.textLo,
+                                    tint = if (isConnected) colors.onPrimary else colors.textLo,
                                     modifier = Modifier.size(19.dp)
                                 )
                             }
@@ -578,23 +547,8 @@ fun HomeScreen(
                                     letterSpacing = (-0.3).sp,
                                 )
                                 if (isStreaming) {
-                                    Box(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(4.dp))
-                                            .background(Primary.copy(alpha = 0.12f))
-                                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                                    ) {
-                                        Text(
-                                            text = "LIVE",
-                                            color = Primary,
-                                            fontSize = 9.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            fontFamily = GeistMonoFamily,
-                                            letterSpacing = 0.5.sp
-                                        )
-                                    }
+                                    NavBeamBadge(label = "LIVE", tone = ChipTone.Primary)
                                 } else if (isSearching) {
-                                    // Status dot for searching state only
                                     Box(
                                         Modifier
                                             .size(7.dp)
@@ -613,10 +567,8 @@ fun HomeScreen(
                         }
                     }
 
-                    // Divider
-                    navBeamDivider()
+                    NavBeamDivider()
 
-                    // Bottom row: connection action
                     Row(
                         horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically,
@@ -625,7 +577,7 @@ fun HomeScreen(
                             .padding(horizontal = 16.dp, vertical = 14.dp)
                     ) {
                         if (dashUi.stage == ConnStage.OFFLINE || dashUi.stage == ConnStage.ERROR) {
-                            navBeamBtn(
+                            NavBeamButton(
                                 label = "Connect",
                                 onClick = {
                                     val wm = ctx.applicationContext.getSystemService(android.content.Context.WIFI_SERVICE) as android.net.wifi.WifiManager
@@ -646,7 +598,7 @@ fun HomeScreen(
                                 modifier = Modifier.fillMaxWidth()
                             )
                         } else {
-                            navBeamBtn(
+                            NavBeamButton(
                                 label = when (dashUi.stage) {
                                     ConnStage.CONNECTED, ConnStage.STREAMING -> "Disconnect"
                                     else -> "Cancel"
@@ -662,106 +614,31 @@ fun HomeScreen(
                         }
                     }
 
-                    // Shimmer progress bar while connecting
                     if (dashUi.stage == ConnStage.WIFI || dashUi.stage == ConnStage.AUTH) {
-                        val infiniteProgress = rememberInfiniteTransition(label = "home-progress")
-                        val progressShift by infiniteProgress.animateFloat(
-                            initialValue = 0f, targetValue = 1f,
-                            animationSpec = infiniteRepeatable(
-                                animation = tween(1400, easing = LinearEasing),
-                                repeatMode = RepeatMode.Restart
-                            ),
-                            label = "progress-shift"
-                        )
-                        BoxWithConstraints(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(3.dp)
-                                .background(colors.line)
-                        ) {
-                            val width = maxWidth
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxHeight()
-                                    .width(width * 0.38f)
-                                    .offset(x = width * 0.62f * progressShift)
-                                    .clip(RoundedCornerShape(1.5.dp))
-                                    .background(Primary)
-                            )
-                        }
+                        NavBeamProgressBar(height = 3.dp)
                     }
                 }
             }
 
             // 3. Search Bar
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(54.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(colors.surf1)
-                    .border(1.dp, colors.line2, RoundedCornerShape(14.dp))
-                    .padding(horizontal = 14.dp),
-                contentAlignment = Alignment.CenterStart
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(NavBeamIcons.Search, null, tint = colors.textMid, modifier = Modifier.size(19.dp))
-                    Spacer(Modifier.width(10.dp))
-
-                    Box(modifier = Modifier.weight(1f)) {
-                        if (searchQuery.isEmpty()) {
-                            Text(
-                                text = "Search for a destination…",
-                                color = colors.textLo,
-                                fontSize = 14.sp,
-                                fontFamily = GeistFamily
-                            )
-                        }
-                        BasicTextField(
-                            value = searchQuery,
-                            onValueChange = { routeViewModel.setSearchQuery(it) },
-                            textStyle = TextStyle(
-                                color = colors.textHi,
-                                fontSize = 14.sp,
-                                fontFamily = GeistFamily
-                            ),
-                            cursorBrush = SolidColor(Primary),
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                            keyboardActions = KeyboardActions(
-                                onSearch = {
-                                    focusManager.clearFocus()
-                                    keyboardController?.hide()
-                                }
-                            ),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-
-                    if (searchQuery.isNotEmpty()) {
-                        Spacer(Modifier.width(8.dp))
-                        Icon(
-                            imageVector = NavBeamIcons.X,
-                            contentDescription = "Clear",
-                            tint = colors.textLo,
-                            modifier = Modifier
-                                .size(17.dp)
-                                .clickable {
-                                    routeViewModel.clearSearch()
-                                    focusManager.clearFocus()
-                                    keyboardController?.hide()
-                                }
-                        )
-                    }
-                }
-            }
+            NavBeamSearchBar(
+                query = searchQuery,
+                onQueryChange = { routeViewModel.setSearchQuery(it) },
+                onClear = {
+                    routeViewModel.clearSearch()
+                    focusManager.clearFocus()
+                    keyboardController?.hide()
+                },
+                placeholder = "Search for a destination…",
+                onSearch = {
+                    focusManager.clearFocus()
+                    keyboardController?.hide()
+                },
+            )
 
             // Search predictions dropdown
             if (predictions.isNotEmpty() || searchError != null) {
-                navBeamCard(
+                NavBeamCard(
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(max = 280.dp),
@@ -776,7 +653,7 @@ fun HomeScreen(
                         ) {
                             Text(
                                 text = searchError!!,
-                                color = Alert,
+                                color = colors.alert,
                                 fontSize = 13.5.sp,
                                 fontFamily = GeistFamily
                             )
@@ -788,7 +665,7 @@ fun HomeScreen(
                                 .verticalScroll(rememberScrollState())
                         ) {
                             predictions.forEachIndexed { index, prediction ->
-                                if (index > 0) navBeamDivider(Modifier.padding(horizontal = 8.dp))
+                                if (index > 0) NavBeamDivider(Modifier.padding(horizontal = 8.dp))
                                 Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -831,7 +708,7 @@ fun HomeScreen(
             // 4. Quick Pins Carousel
             if (saved.isNotEmpty() || recents.isNotEmpty()) {
                 Column {
-                    Eyebrow("Quick Pins", Modifier.padding(bottom = 8.dp, start = 2.dp))
+                    NavBeamEyebrow("Quick Pins", Modifier.padding(bottom = 8.dp, start = 2.dp))
                     LazyRow(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         contentPadding = PaddingValues(horizontal = 2.dp),
@@ -863,7 +740,7 @@ fun HomeScreen(
 
             // 5. Quick Settings — tappable toggle tiles in a 2x2 grid
             Column {
-                Eyebrow("Ride Settings", Modifier.padding(bottom = 8.dp, start = 2.dp))
+                NavBeamEyebrow("Ride Settings", Modifier.padding(bottom = 8.dp, start = 2.dp))
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -872,225 +749,70 @@ fun HomeScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        // Voice Guidance tile
-                        navBeamCard(
-                            modifier = Modifier.weight(1f),
-                            padding = 14.dp,
+                        NavBeamQuickTile(
+                            icon = if (voiceMode == VoiceMode.OFF) NavBeamIcons.SpeakerOff else NavBeamIcons.Speaker,
+                            label = "Voice",
+                            value = when (voiceMode) {
+                                VoiceMode.OFF -> "Off"
+                                VoiceMode.TONE -> "Tone"
+                                VoiceMode.FULL -> "Voice"
+                            },
+                            active = voiceMode != VoiceMode.OFF,
                             onClick = {
-                                val nextMode = when (voiceMode) {
-                                    VoiceMode.OFF -> VoiceMode.TONE
-                                    VoiceMode.TONE -> VoiceMode.FULL
-                                    VoiceMode.FULL -> VoiceMode.OFF
-                                }
-                                voiceManager.setMode(nextMode)
-                            }
-                        ) {
-                            Column {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Box(
-                                        contentAlignment = Alignment.Center,
-                                        modifier = Modifier
-                                            .size(32.dp)
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .background(
-                                                if (voiceMode != VoiceMode.OFF) Primary.copy(alpha = 0.12f)
-                                                else colors.surf2
-                                            )
-                                    ) {
-                                        Icon(
-                                            imageVector = if (voiceMode == VoiceMode.OFF) NavBeamIcons.SpeakerOff else NavBeamIcons.Speaker,
-                                            contentDescription = null,
-                                            tint = if (voiceMode == VoiceMode.OFF) colors.textLo else Primary,
-                                            modifier = Modifier.size(15.dp)
-                                        )
-                                    }
-                                }
-                                Spacer(Modifier.height(10.dp))
-                                Text(
-                                    text = "Voice",
-                                    color = colors.textLo,
-                                    fontSize = 11.sp,
-                                    fontFamily = GeistFamily,
-                                    letterSpacing = 0.2.sp
-                                )
-                                Spacer(Modifier.height(2.dp))
-                                Text(
-                                    text = when (voiceMode) {
-                                        VoiceMode.OFF -> "Off"
-                                        VoiceMode.TONE -> "Tone"
-                                        VoiceMode.FULL -> "Voice"
+                                voiceManager.setMode(
+                                    when (voiceMode) {
+                                        VoiceMode.OFF -> VoiceMode.TONE
+                                        VoiceMode.TONE -> VoiceMode.FULL
+                                        VoiceMode.FULL -> VoiceMode.OFF
                                     },
-                                    color = colors.textHi,
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontFamily = GeistFamily
                                 )
-                            }
-                        }
-
-                        // Auto-Connect tile
-                        navBeamCard(
+                            },
                             modifier = Modifier.weight(1f),
-                            padding = 14.dp,
+                        )
+
+                        NavBeamQuickTile(
+                            icon = NavBeamIcons.Sync,
+                            label = "Auto-Connect",
+                            value = if (autoConnect) "On Near" else "Off",
+                            active = autoConnect,
                             onClick = {
                                 val nextVal = !autoConnect
                                 autoConnect = nextVal
                                 SettingsPrefs.setAutoConnect(ctx, nextVal)
-                            }
-                        ) {
-                            Column {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Box(
-                                        contentAlignment = Alignment.Center,
-                                        modifier = Modifier
-                                            .size(32.dp)
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .background(
-                                                if (autoConnect) Primary.copy(alpha = 0.12f)
-                                                else colors.surf2
-                                            )
-                                    ) {
-                                        Icon(
-                                            imageVector = NavBeamIcons.Sync,
-                                            contentDescription = null,
-                                            tint = if (autoConnect) Primary else colors.textLo,
-                                            modifier = Modifier.size(15.dp)
-                                        )
-                                    }
-                                }
-                                Spacer(Modifier.height(10.dp))
-                                Text(
-                                    text = "Auto-Connect",
-                                    color = colors.textLo,
-                                    fontSize = 11.sp,
-                                    fontFamily = GeistFamily,
-                                    letterSpacing = 0.2.sp
-                                )
-                                Spacer(Modifier.height(2.dp))
-                                Text(
-                                    text = if (autoConnect) "On Near" else "Off",
-                                    color = colors.textHi,
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontFamily = GeistFamily
-                                )
-                            }
-                        }
+                            },
+                            modifier = Modifier.weight(1f),
+                        )
                     }
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        // Screen Off tile
-                        navBeamCard(
-                            modifier = Modifier.weight(1f),
-                            padding = 14.dp,
+                        NavBeamQuickTile(
+                            icon = NavBeamIcons.Power,
+                            label = "Screen Off",
+                            value = if (screenOff) "On" else "Off",
+                            active = screenOff,
                             onClick = {
                                 val nextVal = !screenOff
                                 screenOff = nextVal
                                 SettingsPrefs.setScreenOff(ctx, nextVal)
-                            }
-                        ) {
-                            Column {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Box(
-                                        contentAlignment = Alignment.Center,
-                                        modifier = Modifier
-                                            .size(32.dp)
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .background(
-                                                if (screenOff) Primary.copy(alpha = 0.12f)
-                                                else colors.surf2
-                                            )
-                                    ) {
-                                        Icon(
-                                            imageVector = NavBeamIcons.Power,
-                                            contentDescription = null,
-                                            tint = if (screenOff) Primary else colors.textLo,
-                                            modifier = Modifier.size(15.dp)
-                                        )
-                                    }
-                                }
-                                Spacer(Modifier.height(10.dp))
-                                Text(
-                                    text = "Screen Off",
-                                    color = colors.textLo,
-                                    fontSize = 11.sp,
-                                    fontFamily = GeistFamily,
-                                    letterSpacing = 0.2.sp
-                                )
-                                Spacer(Modifier.height(2.dp))
-                                Text(
-                                    text = if (screenOff) "On" else "Off",
-                                    color = colors.textHi,
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontFamily = GeistFamily
-                                )
-                            }
-                        }
-
-                        // Keep Awake tile
-                        navBeamCard(
+                            },
                             modifier = Modifier.weight(1f),
-                            padding = 14.dp,
+                        )
+
+                        NavBeamQuickTile(
+                            icon = NavBeamIcons.Clock,
+                            label = "Keep Dash Awake",
+                            value = if (keepAwake) "Always" else "Off",
+                            active = keepAwake,
                             onClick = {
                                 val nextVal = !keepAwake
                                 keepAwake = nextVal
                                 SettingsPrefs.setKeepAwake(ctx, nextVal)
-                            }
-                        ) {
-                            Column {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Box(
-                                        contentAlignment = Alignment.Center,
-                                        modifier = Modifier
-                                            .size(32.dp)
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .background(
-                                                if (keepAwake) Primary.copy(alpha = 0.12f)
-                                                else colors.surf2
-                                            )
-                                    ) {
-                                        Icon(
-                                            imageVector = NavBeamIcons.Clock,
-                                            contentDescription = null,
-                                            tint = if (keepAwake) Primary else colors.textLo,
-                                            modifier = Modifier.size(15.dp)
-                                        )
-                                    }
-                                }
-                                Spacer(Modifier.height(10.dp))
-                                Text(
-                                    text = "Keep Dash Awake",
-                                    color = colors.textLo,
-                                    fontSize = 11.sp,
-                                    fontFamily = GeistFamily,
-                                    letterSpacing = 0.2.sp
-                                )
-                                Spacer(Modifier.height(2.dp))
-                                Text(
-                                    text = if (keepAwake) "Always" else "Off",
-                                    color = colors.textHi,
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontFamily = GeistFamily
-                                )
-                            }
-                        }
+                            },
+                            modifier = Modifier.weight(1f),
+                        )
                     }
                 }
             }
@@ -1099,8 +821,8 @@ fun HomeScreen(
             val lastRide = remember(rides) { rides.firstOrNull() }
             if (lastRide != null) {
                 Column {
-                    Eyebrow("Last Ride", Modifier.padding(bottom = 8.dp, start = 2.dp))
-                    navBeamCard(
+                    NavBeamEyebrow("Last Ride", Modifier.padding(bottom = 8.dp, start = 2.dp))
+                    NavBeamCard(
                         modifier = Modifier.fillMaxWidth(),
                         padding = 16.dp,
                         onClick = { onNavigate("rides") }
@@ -1115,12 +837,12 @@ fun HomeScreen(
                                     modifier = Modifier
                                         .size(40.dp)
                                         .clip(RoundedCornerShape(10.dp))
-                                        .background(Primary.copy(alpha = 0.1f)),
+                                        .background(colors.primaryTint),
                                 ) {
                                     Icon(
                                         imageVector = NavBeamIcons.Route,
                                         contentDescription = null,
-                                        tint = Primary,
+                                        tint = colors.primary,
                                         modifier = Modifier.size(18.dp)
                                     )
                                 }
@@ -1150,42 +872,32 @@ fun HomeScreen(
                             }
 
                             Spacer(Modifier.height(14.dp))
-                            navBeamDivider()
+                            NavBeamDivider()
                             Spacer(Modifier.height(14.dp))
 
                             Row(modifier = Modifier.fillMaxWidth()) {
-                                Column(Modifier.weight(1f)) {
-                                    Text(
-                                        "%.1f".format(lastRide.distanceKm),
-                                        color = Primary,
-                                        fontSize = 20.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        fontFamily = GeistFamily
-                                    )
-                                    Text("km", color = colors.textLo, fontSize = 11.sp, fontFamily = GeistFamily)
-                                }
-                                Column(Modifier.weight(1f)) {
-                                    val sec = lastRide.durationSec
-                                    val h = sec / 3600; val m = (sec % 3600) / 60
-                                    Text(
-                                        if (h > 0) "${h}h ${m}m" else "${m}m",
-                                        color = colors.textHi,
-                                        fontSize = 20.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        fontFamily = GeistFamily
-                                    )
-                                    Text("duration", color = colors.textLo, fontSize = 11.sp, fontFamily = GeistFamily)
-                                }
-                                Column(Modifier.weight(1f)) {
-                                    Text(
-                                        "%.0f".format(lastRide.avgSpeedKmh),
-                                        color = colors.textHi,
-                                        fontSize = 20.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        fontFamily = GeistFamily
-                                    )
-                                    Text("km/h avg", color = colors.textLo, fontSize = 11.sp, fontFamily = GeistFamily)
-                                }
+                                NavBeamStat(
+                                    value = "%.1f".format(lastRide.distanceKm),
+                                    label = "km",
+                                    valueColor = colors.primary,
+                                    horizontalAlignment = Alignment.Start,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                val sec = lastRide.durationSec
+                                val h = sec / 3600
+                                val m = (sec % 3600) / 60
+                                NavBeamStat(
+                                    value = if (h > 0) "${h}h ${m}m" else "${m}m",
+                                    label = "duration",
+                                    horizontalAlignment = Alignment.Start,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                NavBeamStat(
+                                    value = "%.0f".format(lastRide.avgSpeedKmh),
+                                    label = "km/h avg",
+                                    horizontalAlignment = Alignment.Start,
+                                    modifier = Modifier.weight(1f),
+                                )
                             }
                         }
                     }
@@ -1225,7 +937,7 @@ fun HomeScreen(
                         showApiKeyDialog = false
                     }
                 ) {
-                    Text("Save", color = Primary)
+                    Text("Save", color = colors.primary)
                 }
             },
             dismissButton = {
@@ -1274,7 +986,7 @@ private fun QuickPinChip(
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = Primary,
+            tint = colors.primary,
             modifier = Modifier.size(15.dp)
         )
         Spacer(Modifier.width(6.dp))

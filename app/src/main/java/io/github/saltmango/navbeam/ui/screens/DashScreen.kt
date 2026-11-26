@@ -81,7 +81,7 @@ fun DashScreen(
             val fullHex = if (cleanHex.length <= 6) 0xFF000000 or longVal else longVal
             Color(fullHex)
         } catch (e: Exception) {
-            Color(0xFFA040FF)
+            colors.routeFallback
         }
     }
 
@@ -190,26 +190,26 @@ fun DashScreen(
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
-            ScreenHeader(
+            NavBeamScreenHeader(
                 title = "Dash view",
                 trailing = {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         if (streaming && ui.gpsStatus != io.github.saltmango.navbeam.viewmodel.GpsStatus.GOOD) {
-                            navBeamChip(
+                            NavBeamChip(
                                 if (ui.gpsStatus == io.github.saltmango.navbeam.viewmodel.GpsStatus.LOST) "GPS lost" else "GPS weak",
                                 if (ui.gpsStatus == io.github.saltmango.navbeam.viewmodel.GpsStatus.LOST) ChipTone.Alert else ChipTone.Warn,
                             )
                         }
                         if (streaming && ui.thermal != "OK") {
-                            navBeamChip(ui.thermal, if (ui.thermal == "Warm") ChipTone.Warn else ChipTone.Alert)
+                            NavBeamChip(ui.thermal, if (ui.thermal == "Warm") ChipTone.Warn else ChipTone.Alert)
                         }
                         when (ui.stage) {
-                            ConnStage.STREAMING -> navBeamChip("LIVE", ChipTone.Primary, dot = true)
-                            ConnStage.WIFI, ConnStage.AUTH -> navBeamChip("Connecting…", ChipTone.Neutral)
-                            ConnStage.OFFLINE -> navBeamChip("Offline", ChipTone.Off)
+                            ConnStage.STREAMING -> NavBeamChip("LIVE", ChipTone.Primary, dot = true)
+                            ConnStage.WIFI, ConnStage.AUTH -> NavBeamChip("Connecting…", ChipTone.Neutral)
+                            ConnStage.OFFLINE -> NavBeamChip("Offline", ChipTone.Off)
                             else -> {}
                         }
-                        navBeamIconBtn(icon = NavBeamIcons.Gear, onClick = { showQuickSettings = true }, size = 32.dp)
+                        NavBeamIconButton(icon = NavBeamIcons.Gear, onClick = { showQuickSettings = true }, size = 32.dp)
                     }
                 },
             )
@@ -217,13 +217,12 @@ fun DashScreen(
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .padding(horizontal = 18.dp)
+                    .padding(horizontal = 18.dp),
             ) {
-                // Connection Overlay (Push content down if visible)
                 if (!streaming) {
-                    navBeamCard(
+                    NavBeamCard(
                         modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 8.dp),
-                        glow = ui.stage == ConnStage.WIFI || ui.stage == ConnStage.AUTH
+                        glow = ui.stage == ConnStage.WIFI || ui.stage == ConnStage.AUTH,
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                             Column(Modifier.weight(1f).padding(end = 12.dp)) {
@@ -235,19 +234,22 @@ fun DashScreen(
                                         ui.stage == ConnStage.ERROR -> "Connection Failed"
                                         else -> "Connect to Display"
                                     },
-                                    color = colors.textHi, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, fontFamily = GeistFamily
+                                    color = colors.textHi,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontFamily = GeistFamily,
                                 )
                                 if (ui.stage == ConnStage.ERROR && !ui.errorMessage.isNullOrBlank()) {
                                     Text(
                                         text = ui.errorMessage!!,
-                                        color = Alert,
+                                        color = colors.alert,
                                         fontSize = 11.5.sp,
-                                        modifier = Modifier.padding(top = 2.dp)
+                                        modifier = Modifier.padding(top = 2.dp),
                                     )
                                 }
                             }
                             if (ui.stage == ConnStage.OFFLINE || ui.stage == ConnStage.ERROR) {
-                                navBeamBtn(
+                                NavBeamButton(
                                     label = "Connect",
                                     onClick = {
                                         val wm = context.applicationContext.getSystemService(android.content.Context.WIFI_SERVICE) as android.net.wifi.WifiManager
@@ -262,48 +264,44 @@ fun DashScreen(
                                     },
                                     icon = NavBeamIcons.Wifi,
                                     variant = BtnVariant.Primary,
-                                    size = BtnSize.Sm
+                                    size = BtnSize.Sm,
                                 )
                             } else if (ui.stage == ConnStage.CONNECTED) {
-                                navBeamBtn("Start", onClick = { vm.startProjection() }, icon = NavBeamIcons.Navi, variant = BtnVariant.Primary, size = BtnSize.Sm)
+                                NavBeamButton("Start", onClick = { vm.startProjection() }, icon = NavBeamIcons.Navi, variant = BtnVariant.Primary, size = BtnSize.Sm)
                             } else {
-                                navBeamBtn("Cancel", onClick = { vm.disconnect() }, variant = BtnVariant.Ghost, size = BtnSize.Sm)
+                                NavBeamButton("Cancel", onClick = { vm.disconnect() }, variant = BtnVariant.Ghost, size = BtnSize.Sm)
                             }
                         }
                     }
                 }
 
-                // FLEXIBLE CONTENT AREA (Auto-margin logic)
                 Column(
                     modifier = Modifier.weight(1f).fillMaxWidth().padding(vertical = 12.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                    horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    // Maneuver Pill (Top Auto Margin)
                     if (ui.maneuver != null) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.clip(CircleShape).background(colors.surf1.copy(alpha = 0.92f)).border(1.dp, colors.line, CircleShape).padding(horizontal = 14.dp, vertical = 7.dp)
+                            modifier = Modifier.clip(CircleShape).background(colors.surf1.copy(alpha = 0.92f)).border(1.dp, colors.line, CircleShape).padding(horizontal = 14.dp, vertical = 7.dp),
                         ) {
-                            Icon(NavBeamIcons.Navi, null, tint = if (ui.offRoute) Warn else Primary, modifier = Modifier.size(16.dp))
+                            Icon(NavBeamIcons.Navi, null, tint = if (ui.offRoute) colors.warn else colors.primary, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(10.dp))
                             Text(if (ui.offRoute) "Rerouting…" else (ui.maneuver ?: ""), color = colors.textHi, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
                         }
                     } else {
-                        // Empty spacer if no maneuver, to maintain vertical balance
                         Spacer(Modifier.height(36.dp))
                     }
 
-                    Spacer(Modifier.weight(1f)) // AUTO MARGIN (Top)
+                    Spacer(Modifier.weight(1f))
 
-                    // Main Viewport (Always Centered)
                     Box(contentAlignment = Alignment.Center) {
                         val haloAlpha by infiniteTransition.animateFloat(0.15f, 0.35f, animationSpec = infiniteRepeatable(tween(2500, easing = LinearEasing), RepeatMode.Reverse), label = "vh")
-                        Box(Modifier.size(250.dp).clip(haloShape).background(Brush.radialGradient(listOf(if (streaming) PrimaryGlow.copy(alpha = haloAlpha) else colors.line3.copy(alpha = 0.1f), Color.Transparent))))
+                        Box(Modifier.size(250.dp).clip(haloShape).background(Brush.radialGradient(listOf(if (streaming) colors.primaryGlow.copy(alpha = haloAlpha) else colors.line3.copy(alpha = 0.1f), Color.Transparent))))
                         Box(
                             modifier = Modifier.size(236.dp).clip(bezelShape).background(colors.bg0)
-                                .border(5.dp, if (colors.bg0 == Bg0Dark) Brush.linearGradient(listOf(Color(0xFF2E3336), Color(0xFF0F1112))) else Brush.linearGradient(listOf(Color(0xFFE2E8F0), Color(0xFF94A3B8))), bezelShape)
+                                .border(5.dp, Brush.linearGradient(listOf(colors.dashBezelOuter, colors.dashBezelInner)), bezelShape)
                                 .border(1.dp, colors.line2, bezelShape)
-                                .border(1.dp, if (streaming) Primary.copy(alpha = 0.8f) else Color.Transparent, bezelShape),
+                                .border(1.dp, if (streaming) colors.primary.copy(alpha = 0.8f) else Color.Transparent, bezelShape),
                         ) {
                             if (ui.navMode == "Arrow") {
                                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -315,7 +313,7 @@ fun DashScreen(
                                         Icon(
                                             imageVector = NavBeamIcons.Navi,
                                             contentDescription = null,
-                                            tint = Primary,
+                                            tint = colors.primary,
                                             modifier = Modifier.size(56.dp)
                                         )
                                         Spacer(Modifier.height(12.dp))
@@ -373,7 +371,7 @@ fun DashScreen(
                                     verticalAlignment = Alignment.CenterVertically,
                                     modifier = Modifier.clip(CircleShape).background(colors.surf1.copy(alpha = 0.92f)).border(1.dp, colors.line, CircleShape).padding(horizontal = 10.dp, vertical = 6.dp)
                                 ) {
-                                    Icon(NavBeamIcons.Navi, null, tint = Primary, modifier = Modifier.size(14.dp))
+                                    Icon(NavBeamIcons.Navi, null, tint = colors.primary, modifier = Modifier.size(14.dp))
                                     Spacer(Modifier.width(6.dp))
                                     Text(if (km >= 10) "%.0f".format(km) else "%.1f".format(km), color = colors.textHi, fontSize = 15.sp, fontWeight = FontWeight.Bold, fontFamily = GeistMonoFamily)
                                     Text(" km", color = colors.textLo, fontSize = 10.sp, fontFamily = GeistMonoFamily)
@@ -384,7 +382,7 @@ fun DashScreen(
                                     verticalAlignment = Alignment.CenterVertically,
                                     modifier = Modifier.clip(CircleShape).background(colors.surf1.copy(alpha = 0.92f)).border(1.dp, colors.line, CircleShape).padding(horizontal = 10.dp, vertical = 6.dp)
                                 ) {
-                                    Icon(NavBeamIcons.Clock, null, tint = Primary, modifier = Modifier.size(14.dp))
+                                    Icon(NavBeamIcons.Clock, null, tint = colors.primary, modifier = Modifier.size(14.dp))
                                     Spacer(Modifier.width(6.dp))
                                     ui.etaMinutes?.let { min ->
                                         Text(min.toString(), color = colors.textHi, fontSize = 15.sp, fontWeight = FontWeight.Bold, fontFamily = GeistMonoFamily)
@@ -402,7 +400,7 @@ fun DashScreen(
 
                 // COMPACT COCKPIT CONTROLS (Always Sticky at Bottom)
                 if (ui.navMode == "Map") {
-                    navBeamCard(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp), padding = 12.dp) {
+                    NavBeamCard(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp), padding = 12.dp) {
                         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             Box(contentAlignment = Alignment.Center, modifier = Modifier.size(100.dp).clip(CircleShape).background(colors.bg0).border(1.dp, colors.line2, CircleShape)) {
                                 Joystick(size = 90.dp, onMove = { v -> joystickVelocity = if (adjustMode) v else Offset.Zero })
@@ -410,14 +408,14 @@ fun DashScreen(
                             Spacer(Modifier.width(16.dp))
                             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                                    navBeamIconBtn(icon = NavBeamIcons.Minus, onClick = { vm.zoomOut() }, size = 42.dp)
+                                    NavBeamIconButton(icon = NavBeamIcons.Minus, onClick = { vm.zoomOut() }, size = 42.dp)
                                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Text("z${ui.mapZoom}", color = Primary, fontSize = 14.sp, fontWeight = FontWeight.Bold, fontFamily = GeistMonoFamily)
-                                        Eyebrow("ZOOM")
+                                        Text("z${ui.mapZoom}", color = colors.primary, fontSize = 14.sp, fontWeight = FontWeight.Bold, fontFamily = GeistMonoFamily)
+                                        NavBeamEyebrow("ZOOM")
                                     }
-                                    navBeamIconBtn(icon = NavBeamIcons.Plus, onClick = { vm.zoomIn() }, size = 42.dp)
+                                    NavBeamIconButton(icon = NavBeamIcons.Plus, onClick = { vm.zoomIn() }, size = 42.dp)
                                 }
-                                navBeamBtn(label = "Recenter", onClick = { vm.recenter(); pan = Offset.Zero }, icon = NavBeamIcons.Recenter, variant = BtnVariant.Secondary, size = BtnSize.Sm, modifier = Modifier.fillMaxWidth())
+                                NavBeamButton(label = "Recenter", onClick = { vm.recenter(); pan = Offset.Zero }, icon = NavBeamIcons.Recenter, variant = BtnVariant.Secondary, size = BtnSize.Sm, modifier = Modifier.fillMaxWidth())
                             }
                         }
                     }
@@ -429,7 +427,7 @@ fun DashScreen(
             // Fixed Stop Button
             if (streaming) {
                 Box(modifier = Modifier.fillMaxWidth().background(colors.bg0).border(1.dp, colors.line, androidx.compose.ui.graphics.RectangleShape).padding(16.dp)) {
-                    navBeamBtn("Stop Navigation", onClick = { vm.stopProjection(); vm.exitNavigation(); onStopNavigation?.invoke() }, icon = NavBeamIcons.Power, variant = BtnVariant.Danger, size = BtnSize.Lg, modifier = Modifier.fillMaxWidth())
+                    NavBeamButton("Stop Navigation", onClick = { vm.stopProjection(); vm.exitNavigation(); onStopNavigation?.invoke() }, icon = NavBeamIcons.Power, variant = BtnVariant.Danger, size = BtnSize.Lg, modifier = Modifier.fillMaxWidth())
                 }
             }
         }
@@ -441,12 +439,12 @@ fun DashScreen(
                 Text("Quick Ride Settings", color = colors.textHi, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, fontFamily = GeistFamily)
                 if (ui.navMode == "Map") {
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Eyebrow("Map Rotation")
-                        navBeamSegmented(options = listOf("North-Up", "Heading-Up"), selected = if (ui.headingUp) "Heading-Up" else "North-Up", onSelect = { vm.toggleHeadingUp() }, modifier = Modifier.fillMaxWidth())
+                        NavBeamEyebrow("Map Rotation")
+                        NavBeamSegmentedControl(options = listOf("North-Up", "Heading-Up"), selected = if (ui.headingUp) "Heading-Up" else "North-Up", onSelect = { vm.toggleHeadingUp() }, modifier = Modifier.fillMaxWidth())
                     }
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Eyebrow("Stream Quality")
-                        navBeamSegmented(options = listOf("Max", "Balanced", "Battery Saver", "Custom"), selected = ui.streamQuality, onSelect = { vm.setStreamQuality(it) }, modifier = Modifier.fillMaxWidth())
+                        NavBeamEyebrow("Stream Quality")
+                        NavBeamSegmentedControl(options = listOf("Max", "Balanced", "Battery Saver", "Custom"), selected = ui.streamQuality, onSelect = { vm.setStreamQuality(it) }, modifier = Modifier.fillMaxWidth())
                     }
 
                     // Route Line Color Settings
@@ -460,7 +458,7 @@ fun DashScreen(
                     )
 
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Eyebrow("Route Line Color")
+                        NavBeamEyebrow("Route Line Color")
 
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -534,7 +532,7 @@ fun DashScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Eyebrow("Route Line Thickness")
+                            NavBeamEyebrow("Route Line Thickness")
                             Text(
                                 text = "${routeLineWidth.toInt()} dp",
                                 color = colors.textHi,
@@ -551,8 +549,8 @@ fun DashScreen(
                             valueRange = 4f..20f,
                             steps = 15,
                             colors = androidx.compose.material3.SliderDefaults.colors(
-                                thumbColor = Primary,
-                                activeTrackColor = Primary,
+                                thumbColor = colors.primary,
+                                activeTrackColor = colors.primary,
                                 inactiveTrackColor = colors.line3,
                                 activeTickColor = Color.Transparent,
                                 inactiveTickColor = Color.Transparent
@@ -566,7 +564,7 @@ fun DashScreen(
                         Text("Keep dash awake", color = colors.textHi, fontSize = 14.sp, fontFamily = GeistFamily)
                         Text("Prevent dash display sleep while connected", color = colors.textLo, fontSize = 11.5.sp, modifier = Modifier.padding(top = 2.dp))
                     }
-                    navBeamToggle(on = keepAwake, onChange = { keepAwake = it; SettingsPrefs.setKeepAwake(context, it) })
+                    NavBeamToggle(on = keepAwake, onChange = { keepAwake = it; SettingsPrefs.setKeepAwake(context, it) })
                 }
             }
         }

@@ -99,12 +99,12 @@ fun Joystick(
         Canvas(
             Modifier
                 .size(44.dp)
-                .offset { androidx.compose.ui.unit.IntOffset(knobOffset.x.toInt(), knobOffset.y.toInt()) }
+                .offset { androidx.compose.ui.unit.IntOffset(knobOffset.x.toInt(), knobOffset.y.toInt()) },
         ) {
             val r = 22.dp.toPx()
             drawCircle(
                 brush = Brush.linearGradient(
-                    listOf(PrimaryBright, PrimaryDeep),
+                    listOf(colors.primaryBright, colors.primaryDeep),
                     start = Offset(r * 0.4f, r * 0.4f),
                     end = Offset(r * 1.6f, r * 1.6f),
                 ),
@@ -117,7 +117,7 @@ fun Joystick(
                 style = Stroke(1.dp.toPx()),
             )
             // Dimple
-            drawCircle(OnPrimary.copy(alpha = 0.5f), radius = 6.dp.toPx())
+            drawCircle(colors.onPrimary.copy(alpha = 0.5f), radius = 6.dp.toPx())
         }
     }
 }

@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -48,38 +49,40 @@ fun CircularDash(
     // Live ring pulse animation
     val infiniteTransition = rememberInfiniteTransition(label = "live-ring")
     val ringScale by infiniteTransition.animateFloat(
-        initialValue = 0.7f, targetValue = 2.0f,
+        initialValue = 0.7f,
+        targetValue = 2.0f,
         animationSpec = infiniteRepeatable(tween(2200, easing = LinearEasing)),
         label = "ring-scale",
     )
     val ringAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.7f, targetValue = 0f,
+        initialValue = 0.7f,
+        targetValue = 0f,
         animationSpec = infiniteRepeatable(tween(2200, easing = LinearEasing)),
         label = "ring-alpha",
     )
 
     val activeProfile by io.github.saltmango.navbeam.dash.profile.DashProfileManager.activeProfile.collectAsState()
     val isCircle = activeProfile.display.shape == io.github.saltmango.navbeam.dash.profile.DisplayShape.CIRCLE
-    val bezelShape = if (isCircle) CircleShape else androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
+    val bezelShape = if (isCircle) CircleShape else RoundedCornerShape(16.dp)
 
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier
             .size(size)
-            // Outer bezel rings via border layering
-            .border(2.dp, Color(0xFF232729), bezelShape)
+            // Outer bezel rings adapt to theme (machined dark steel in dark mode, silver-slate in light mode)
+            .border(2.dp, colors.dashBezelOuter, bezelShape)
             .padding(2.dp)
-            .border(6.dp, Color(0xFF0D0F10), bezelShape)
+            .border(6.dp, colors.dashBezelInner, bezelShape)
             .padding(6.dp)
             .clip(bezelShape)
             .background(
                 Brush.radialGradient(
                     colorStops = arrayOf(
-                        0f to Color(0xFF14201F),
-                        0.7f to Color(0xFF0C1413),
-                        1f to Color(0xFF070B0B),
-                    )
-                )
+                        0f to colors.dashBgCenter,
+                        0.7f to colors.dashBgMid,
+                        1f to colors.dashBgEdge,
+                    ),
+                ),
             ),
     ) {
         // Map layer with pan/zoom
@@ -92,22 +95,21 @@ fun CircularDash(
                     scaleX = zoom
                     scaleY = zoom
                     transformOrigin = TransformOrigin(0.5f, 0.5f)
-                }
+                },
         ) {
-            drawMapContents()
+            drawMapContents(colors)
         }
 
         // Tick ring overlay
         Canvas(Modifier.fillMaxSize()) {
-            drawTickRing()
+            drawTickRing(colors)
         }
 
         // Live ring pulse (behind the rider marker)
         if (live) {
             Canvas(Modifier.fillMaxSize()) {
-                // this.size is DrawScope.size (px)
                 drawCircle(
-                    color = Primary.copy(alpha = ringAlpha * 0.5f),
+                    color = colors.primary.copy(alpha = ringAlpha * 0.5f),
                     radius = this.size.minDimension * 0.12f * ringScale,
                     center = center,
                     style = Stroke(width = 2.dp.toPx()),
@@ -120,8 +122,8 @@ fun CircularDash(
             val cx = this.size.width / 2f
             val cy = this.size.height / 2f
             val r9 = 9.dp.toPx()
-            drawCircle(color = Color(0xFF0C1413), radius = r9, center = Offset(cx, cy))
-            drawCircle(color = Primary, radius = r9, center = Offset(cx, cy), style = Stroke(1.5.dp.toPx()))
+            drawCircle(color = colors.dashBgMid, radius = r9, center = Offset(cx, cy))
+            drawCircle(color = colors.primary, radius = r9, center = Offset(cx, cy), style = Stroke(1.5.dp.toPx()))
             val path = Path().apply {
                 moveTo(cx, 2.dp.toPx())
                 lineTo(this@Canvas.size.width - 2.dp.toPx(), this@Canvas.size.height - 2.dp.toPx())
@@ -129,13 +131,13 @@ fun CircularDash(
                 lineTo(2.dp.toPx(), this@Canvas.size.height - 2.dp.toPx())
                 close()
             }
-            drawPath(path, Primary)
+            drawPath(path, colors.primary)
         }
 
         // N compass
         Text(
-            "N",
-            color = Primary,
+            text = "N",
+            color = colors.primary,
             fontFamily = GeistMonoFamily,
             fontWeight = FontWeight.Bold,
             fontSize = (size.value * 0.05f).sp,
@@ -146,30 +148,28 @@ fun CircularDash(
 
         // Non-compact overlays: next-turn banner + street label
         if (!compact) {
-            // Next-turn banner
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .padding(top = (size.value * 0.17f).dp)
                     .clip(CircleShape)
-                    .background(Color(0xD00C0C0C))
-                    .border(1.dp, PrimaryTint2, CircleShape)
+                    .background(colors.dashBannerBg)
+                    .border(1.dp, colors.primaryTint2, CircleShape)
                     .padding(horizontal = 13.dp, vertical = 5.dp),
             ) {
                 Text(
-                    distance,
-                    color = colors.textHi,
+                    text = distance,
+                    color = colors.dashBannerText,
                     fontFamily = GeistMonoFamily,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = (size.value * 0.062f).sp,
                 )
             }
 
-            // Street label at bottom
             Text(
-                street,
-                color = colors.textHi,
+                text = street,
+                color = colors.dashBannerText,
                 fontFamily = GeistFamily,
                 fontWeight = FontWeight.SemiBold,
                 fontSize = (size.value * 0.052f).sp,
@@ -198,22 +198,22 @@ fun CircularDash(
     }
 }
 
-private fun DrawScope.drawMapContents() {
+private fun DrawScope.drawMapContents(colors: NavBeamColors) {
     val w = size.width
     val h = size.height
 
-    // Terrain fill
     val terrainPath = Path().apply {
         moveTo(0f, h * 0.75f)
         cubicTo(w * 0.2f, h * 0.675f, w * 0.35f, h * 0.825f, w * 0.55f, h * 0.75f)
         cubicTo(w * 0.75f, h * 0.69f, w * 0.875f, h * 0.79f, w, h * 0.75f)
-        lineTo(w, h); lineTo(0f, h); close()
+        lineTo(w, h)
+        lineTo(0f, h)
+        close()
     }
-    drawPath(terrainPath, Color(0xFF101B1A))
+    drawPath(terrainPath, colors.dashTerrain)
 
-    // Side roads
     val roadPaint = Paint().apply {
-        color = Color(0xFF1D2A2A)
+        color = colors.dashRoad
         strokeWidth = 5f
         strokeCap = StrokeCap.Round
         style = PaintingStyle.Stroke
@@ -233,9 +233,8 @@ private fun DrawScope.drawMapContents() {
         lineTo(w, h * 0.5f)
     }, roadPaint)
 
-    // Active route (primary)
     val routePaint = Paint().apply {
-        color = Primary
+        color = colors.primary
         strokeWidth = 7f
         strokeCap = StrokeCap.Round
         strokeJoin = StrokeJoin.Round
@@ -249,9 +248,8 @@ private fun DrawScope.drawMapContents() {
     }
     drawContext.canvas.drawPath(routePath, routePaint)
 
-    // Dashed white overlay
     drawContext.canvas.drawPath(routePath, Paint().apply {
-        color = Color(0x80FFF5DD)
+        color = colors.dashRouteDash
         strokeWidth = 1.6f
         strokeCap = StrokeCap.Round
         style = PaintingStyle.Stroke
@@ -259,7 +257,7 @@ private fun DrawScope.drawMapContents() {
     })
 }
 
-private fun DrawScope.drawTickRing() {
+private fun DrawScope.drawTickRing(colors: NavBeamColors) {
     val cx = size.width / 2f
     val cy = size.height / 2f
     for (i in 0 until 60) {
@@ -268,9 +266,9 @@ private fun DrawScope.drawTickRing() {
         val r1 = (if (major) 0.9f else 0.93f) * (size.width / 2f)
         val r2 = 0.96f * (size.width / 2f)
         drawLine(
-            color = if (major) Primary.copy(alpha = 0.45f) else Color.White.copy(alpha = 0.13f),
+            color = if (major) colors.primary.copy(alpha = 0.45f) else Color.White.copy(alpha = 0.13f),
             start = Offset(cx + cos(angle) * r1, cy + sin(angle) * r1),
-            end   = Offset(cx + cos(angle) * r2, cy + sin(angle) * r2),
+            end = Offset(cx + cos(angle) * r2, cy + sin(angle) * r2),
             strokeWidth = if (major) 1.4f else 0.8f,
             cap = StrokeCap.Butt,
         )

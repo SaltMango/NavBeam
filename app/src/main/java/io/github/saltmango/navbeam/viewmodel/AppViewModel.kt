@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 enum class ConnectionState { Connected, Searching, Offline }
-enum class ThemeMode { On, Off, Auto }
+enum class ThemeMode { Light, Dark, System }
 
 class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val _conn = MutableStateFlow(ConnectionState.Connected)
@@ -17,7 +17,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         try {
             ThemeMode.valueOf(SettingsPrefs.getTheme(app))
         } catch (e: Exception) {
-            ThemeMode.On
+            ThemeMode.System
         }
     )
     val themeMode = _themeMode.asStateFlow()

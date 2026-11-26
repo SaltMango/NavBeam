@@ -69,7 +69,7 @@ fun UpdatePrompt() {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
                     "NavBeam ${r.versionName}",
-                    color = Primary,
+                    color = colors.primary,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold,
                     fontFamily = GeistFamily,
@@ -94,7 +94,7 @@ fun UpdatePrompt() {
                     LinearProgressIndicator(
                         progress = { progress },
                         modifier = Modifier.padding(top = 2.dp),
-                        color = Primary,
+                        color = colors.primary,
                         trackColor = colors.line,
                     )
                     Text(
@@ -107,7 +107,7 @@ fun UpdatePrompt() {
                 if (failed) {
                     Text(
                         "Download failed — opening the Releases page instead.",
-                        color = Warn,
+                        color = colors.warn,
                         fontSize = 12.sp,
                         fontFamily = GeistFamily,
                     )
@@ -139,7 +139,7 @@ fun UpdatePrompt() {
             ) {
                 Text(
                     if (downloading) "Downloading…" else "Update",
-                    color = if (downloading) colors.textLo else Primary,
+                    color = if (downloading) colors.textLo else colors.primary,
                     fontWeight = FontWeight.SemiBold,
                     fontFamily = GeistFamily,
                 )

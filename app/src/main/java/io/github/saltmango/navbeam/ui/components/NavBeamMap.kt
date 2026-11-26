@@ -154,7 +154,7 @@ fun NavBeamMap(
         }
 
         if (hasLocationPermission) {
-            navBeamIconBtn(
+            NavBeamIconButton(
                 icon = io.github.saltmango.navbeam.ui.NavBeamIcons.Recenter,
                 onClick = {
                     val lm = context.getSystemService(android.content.Context.LOCATION_SERVICE) as android.location.LocationManager
@@ -198,7 +198,7 @@ fun NavBeamMap(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .padding(bottom = 38.dp, end = 16.dp)
-                    .background(colors.bg1.copy(alpha = 0.85f), IconBtnShape),
+                    .background(colors.bg1.copy(alpha = 0.85f), NavBeamTheme.shapes.iconButton),
             )
         }
     }

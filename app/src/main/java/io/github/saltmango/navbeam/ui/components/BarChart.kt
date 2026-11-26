@@ -18,7 +18,7 @@ import io.github.saltmango.navbeam.ui.theme.*
 data class BarEntry(val label: String, val value: Float)
 
 @Composable
-fun navBeamBarChart(
+fun NavBeamBarChart(
     data: List<BarEntry>,
     modifier: Modifier = Modifier,
     height: Dp = 108.dp,
@@ -47,7 +47,7 @@ fun navBeamBarChart(
             ) {
                 Text(
                     text = entry.value.toString(),
-                    color = if (best) Primary else colors.textLo,
+                    color = if (best) colors.primary else colors.textLo,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.SemiBold,
                     fontFamily = GeistMonoFamily,
@@ -62,7 +62,7 @@ fun navBeamBarChart(
                         .drawBehind {
                             if (best) {
                                 drawRect(
-                                    brush = Brush.verticalGradient(listOf(Primary, PrimaryDeep)),
+                                    brush = Brush.verticalGradient(listOf(colors.primary, colors.primaryDeep)),
                                 )
                             } else {
                                 drawRect(color = colors.surf3)

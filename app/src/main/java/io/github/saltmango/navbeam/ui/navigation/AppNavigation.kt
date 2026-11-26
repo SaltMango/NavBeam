@@ -233,6 +233,8 @@ fun AppNavigation(
                 ) {
                     composable(Screen.Login.route) {
                         LoginScreen(
+                            themeMode = themeMode,
+                            onThemeModeChange = { appViewModel.setThemeMode(it) },
                             onContinue = {
                                 navController.navigate(Screen.ProfileSetup.route)
                             },
@@ -371,7 +373,7 @@ fun AppNavigation(
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text(
                                 summary,
-                                color = Alert,
+                                color = colors.alert,
                                 fontSize = 12.5.sp,
                                 fontFamily = GeistMonoFamily,
                             )
@@ -400,7 +402,7 @@ fun AppNavigation(
                                 }
                             }
                         ) {
-                            Text(if (crashActionBusy) "Preparing…" else "Report on GitHub", color = Primary)
+                            Text(if (crashActionBusy) "Preparing…" else "Report on GitHub", color = colors.primary)
                         }
                     },
                     dismissButton = {
@@ -460,13 +462,13 @@ private fun NavBeamBottomNav(
             .shadow(
                 elevation = 24.dp,
                 shape = shape,
-                ambientColor = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.15f),
-                spotColor = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.2f)
+                ambientColor = colors.shadow,
+                spotColor = colors.shadow,
             )
             .background(colors.surf1, shape = shape)
             .navigationBarsPadding()
     ) {
-        io.github.saltmango.navbeam.ui.components.navBeamDivider()
+        io.github.saltmango.navbeam.ui.components.NavBeamDivider()
         Row(
 
             modifier = Modifier
@@ -490,7 +492,7 @@ private fun NavBeamBottomNav(
                 )
 
                 val iconTint by animateColorAsState(
-                    targetValue = if (active) Primary else colors.textLo,
+                    targetValue = if (active) colors.primary else colors.textLo,
                     animationSpec = spring(stiffness = Spring.StiffnessMedium),
                     label = "iconTint"
                 )
@@ -534,7 +536,7 @@ private fun NavBeamBottomNav(
                                 Icon(
                                     imageVector = tab.icon,
                                     contentDescription = null,
-                                    tint = Primary.copy(alpha = 0.3f * pillAlpha),
+                                    tint = colors.primary.copy(alpha = 0.3f * pillAlpha),
                                     modifier = Modifier
                                         .size(24.dp)
                                         .scale(scale)

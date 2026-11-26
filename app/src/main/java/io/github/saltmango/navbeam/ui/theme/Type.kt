@@ -1,6 +1,7 @@
 package io.github.saltmango.navbeam.ui.theme
 
 import androidx.compose.material3.Typography
+import androidx.compose.runtime.Immutable
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -29,6 +30,83 @@ val GeistMonoFamily = FontFamily(
     Font(googleFont = GoogleFont("Geist Mono"), fontProvider = provider, weight = FontWeight.Bold),
 )
 
+@Immutable
+data class NavBeamTypography(
+    val brand: TextStyle = TextStyle(
+        fontFamily = GeistMonoFamily,
+        fontWeight = FontWeight.Bold,
+        fontSize = 32.sp,
+        letterSpacing = 0.16.sp,
+    ),
+    val display: TextStyle = TextStyle(
+        fontFamily = GeistMonoFamily,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 38.sp,
+    ),
+    val screenTitle: TextStyle = TextStyle(
+        fontFamily = GeistFamily,
+        fontWeight = FontWeight.Bold,
+        fontSize = 21.sp,
+        letterSpacing = (-0.42).sp,
+    ),
+    val sectionTitle: TextStyle = TextStyle(
+        fontFamily = GeistFamily,
+        fontWeight = FontWeight.Bold,
+        fontSize = 18.sp,
+        letterSpacing = (-0.3).sp,
+    ),
+    val cardTitle: TextStyle = TextStyle(
+        fontFamily = GeistFamily,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 15.5.sp,
+        letterSpacing = (-0.15).sp,
+    ),
+    val body: TextStyle = TextStyle(
+        fontFamily = GeistFamily,
+        fontWeight = FontWeight.Normal,
+        fontSize = 14.sp,
+    ),
+    val bodySecondary: TextStyle = TextStyle(
+        fontFamily = GeistFamily,
+        fontWeight = FontWeight.Normal,
+        fontSize = 12.5.sp,
+        lineHeight = 18.sp,
+    ),
+    val caption: TextStyle = TextStyle(
+        fontFamily = GeistFamily,
+        fontWeight = FontWeight.Normal,
+        fontSize = 11.5.sp,
+    ),
+    val eyebrow: TextStyle = TextStyle(
+        fontFamily = GeistFamily,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 13.sp,
+        letterSpacing = 0.2.sp,
+    ),
+    val badge: TextStyle = TextStyle(
+        fontFamily = GeistMonoFamily,
+        fontWeight = FontWeight.Bold,
+        fontSize = 10.sp,
+        letterSpacing = 0.8.sp,
+    ),
+    val metricValue: TextStyle = TextStyle(
+        fontFamily = GeistMonoFamily,
+        fontWeight = FontWeight.Bold,
+        fontSize = 18.sp,
+    ),
+    val mono: TextStyle = TextStyle(
+        fontFamily = GeistMonoFamily,
+        fontWeight = FontWeight.Medium,
+        fontSize = 13.sp,
+    ),
+    val monoSmall: TextStyle = TextStyle(
+        fontFamily = GeistMonoFamily,
+        fontWeight = FontWeight.Normal,
+        fontSize = 11.sp,
+        letterSpacing = 0.16.sp,
+    ),
+)
+
 val Typography = Typography(
     displayLarge = TextStyle(
         fontFamily = GeistMonoFamily,
@@ -50,8 +128,8 @@ val Typography = Typography(
     titleLarge = TextStyle(
         fontFamily = GeistFamily,
         fontWeight = FontWeight.Bold,
-        fontSize = 23.sp,
-        letterSpacing = (-0.46).sp,
+        fontSize = 21.sp,
+        letterSpacing = (-0.42).sp,
     ),
     titleMedium = TextStyle(
         fontFamily = GeistFamily,

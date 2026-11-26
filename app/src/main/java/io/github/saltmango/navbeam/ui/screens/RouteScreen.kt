@@ -24,7 +24,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
@@ -46,12 +45,6 @@ import io.github.saltmango.navbeam.viewmodel.DashViewModel
 import io.github.saltmango.navbeam.data.SettingsPrefs
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.animation.core.*
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.rememberBottomSheetScaffoldState
@@ -135,7 +128,7 @@ fun RouteScreen(
             val fullHex = if (cleanHex.length <= 6) 0xFF000000 or longVal else longVal
             Color(fullHex)
         } catch (e: Exception) {
-            Color(0xFFA040FF)
+            colors.routeFallback
         }
     }
 
@@ -232,7 +225,7 @@ fun RouteScreen(
                                 .fillMaxHeight()
                                 .padding(vertical = 2.dp)
                                 .clip(RoundedCornerShape(2.dp))
-                                .background(Primary)
+                                .background(colors.primary)
                         )
                         Spacer(Modifier.width(12.dp))
                         Column(
@@ -261,18 +254,18 @@ fun RouteScreen(
                                 )
                             }
                         }
-                        navBeamIconBtn(
+                        NavBeamIconButton(
                             icon = NavBeamIcons.Gear,
                             onClick = { showQuickSettings = true },
                             size = 48.dp,
                             tint = colors.textHi
                         )
                         Spacer(Modifier.width(8.dp))
-                        navBeamIconBtn(
+                        NavBeamIconButton(
                             icon = NavBeamIcons.X,
                             onClick = { routeViewModel.clear() },
                             size = 48.dp,
-                            tint = Alert
+                            tint = colors.alert
                         )
                     }
                     Spacer(Modifier.height(12.dp))
@@ -281,7 +274,7 @@ fun RouteScreen(
                             .fillMaxWidth()
                             .shadow(elevation = 1.5.dp, clip = false)
                     ) {
-                        io.github.saltmango.navbeam.ui.components.navBeamDivider()
+                        NavBeamDivider()
                     }
                 }
 
@@ -320,10 +313,10 @@ fun RouteScreen(
 
                         if (recents.isNotEmpty()) {
                             Spacer(Modifier.height(18.dp))
-                            Eyebrow("Recent Searches", Modifier.padding(bottom = 8.dp, start = 4.dp))
-                            navBeamCard(modifier = Modifier.fillMaxWidth(), padding = 6.dp) {
+                            NavBeamEyebrow("Recent Searches", Modifier.padding(bottom = 8.dp, start = 4.dp))
+                            NavBeamCard(modifier = Modifier.fillMaxWidth(), padding = 6.dp) {
                                 recents.forEachIndexed { i, loc ->
-                                    if (i > 0) navBeamDivider(Modifier.padding(horizontal = 4.dp))
+                                    if (i > 0) NavBeamDivider(Modifier.padding(horizontal = 4.dp))
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
                                         modifier = Modifier
@@ -336,7 +329,7 @@ fun RouteScreen(
                                             contentAlignment = Alignment.Center,
                                             modifier = Modifier
                                                 .size(40.dp)
-                                                .clip(RoundedCornerShape(11.dp))
+                                                .clip(NavBeamTheme.shapes.iconBadge)
                                                 .background(colors.surf2),
                                         ) {
                                             Icon(
@@ -372,10 +365,10 @@ fun RouteScreen(
 
                         if (savedRoutes.isNotEmpty()) {
                             Spacer(Modifier.height(18.dp))
-                            Eyebrow("Saved Offline Routes", Modifier.padding(bottom = 8.dp, start = 4.dp))
-                            navBeamCard(modifier = Modifier.fillMaxWidth(), padding = 6.dp) {
+                            NavBeamEyebrow("Saved Offline Routes", Modifier.padding(bottom = 8.dp, start = 4.dp))
+                            NavBeamCard(modifier = Modifier.fillMaxWidth(), padding = 6.dp) {
                                 savedRoutes.forEachIndexed { i, item ->
-                                    if (i > 0) navBeamDivider(Modifier.padding(horizontal = 4.dp))
+                                    if (i > 0) NavBeamDivider(Modifier.padding(horizontal = 4.dp))
                                     Column(
                                         modifier = Modifier
                                             .fillMaxWidth()
@@ -390,13 +383,13 @@ fun RouteScreen(
                                                 contentAlignment = Alignment.Center,
                                                 modifier = Modifier
                                                     .size(40.dp)
-                                                    .clip(RoundedCornerShape(11.dp))
-                                                    .background(Color(0xFF43A047).copy(alpha = 0.15f)),
+                                                    .clip(NavBeamTheme.shapes.iconBadge)
+                                                    .background(colors.successTint),
                                             ) {
                                                 Icon(
                                                     imageVector = NavBeamIcons.Route,
                                                     contentDescription = null,
-                                                    tint = Color(0xFF43A047),
+                                                    tint = colors.success,
                                                     modifier = Modifier.size(20.dp)
                                                 )
                                             }
@@ -421,7 +414,7 @@ fun RouteScreen(
                                             Icon(
                                                 imageVector = NavBeamIcons.Trash,
                                                 contentDescription = "delete route",
-                                                tint = Alert,
+                                                tint = colors.alert,
                                                 modifier = Modifier
                                                     .size(20.dp)
                                                     .clickable { routeViewModel.deleteSavedRoute(item) }
@@ -434,7 +427,7 @@ fun RouteScreen(
                                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                                             modifier = Modifier.fillMaxWidth()
                                         ) {
-                                            navBeamBtn(
+                                            NavBeamButton(
                                                 label = "${item.fromName} → ${item.toName}",
                                                 onClick = { routeViewModel.loadSavedRoute(item, isReturn = false, dashViewModel = dashViewModel) },
                                                 variant = BtnVariant.Primary,
@@ -442,7 +435,7 @@ fun RouteScreen(
                                                 modifier = Modifier.weight(1f)
                                             )
                                             if (item.returnRouteJson.isNotBlank()) {
-                                                navBeamBtn(
+                                                NavBeamButton(
                                                     label = "Return (${item.toName} → ${item.fromName})",
                                                     onClick = { routeViewModel.loadSavedRoute(item, isReturn = true, dashViewModel = dashViewModel) },
                                                     variant = BtnVariant.Secondary,
@@ -458,10 +451,10 @@ fun RouteScreen(
 
                         if (savedList.isNotEmpty()) {
                             Spacer(Modifier.height(18.dp))
-                            Eyebrow("Saved Destinations", Modifier.padding(bottom = 8.dp, start = 4.dp))
-                            navBeamCard(modifier = Modifier.fillMaxWidth(), padding = 6.dp) {
+                            NavBeamEyebrow("Saved Destinations", Modifier.padding(bottom = 8.dp, start = 4.dp))
+                            NavBeamCard(modifier = Modifier.fillMaxWidth(), padding = 6.dp) {
                                 savedList.forEachIndexed { i, loc ->
-                                    if (i > 0) navBeamDivider(Modifier.padding(horizontal = 4.dp))
+                                    if (i > 0) NavBeamDivider(Modifier.padding(horizontal = 4.dp))
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
                                         modifier = Modifier
@@ -474,13 +467,13 @@ fun RouteScreen(
                                             contentAlignment = Alignment.Center,
                                             modifier = Modifier
                                                 .size(40.dp)
-                                                .clip(RoundedCornerShape(11.dp))
-                                                .background(PrimaryTint),
+                                                .clip(NavBeamTheme.shapes.iconBadge)
+                                                .background(colors.primaryTint),
                                         ) {
                                             Icon(
                                                 imageVector = NavBeamIcons.LocationPin,
                                                 contentDescription = null,
-                                                tint = Primary,
+                                                tint = colors.primary,
                                                 modifier = Modifier.size(20.dp)
                                             )
                                         }
@@ -516,38 +509,21 @@ fun RouteScreen(
                             }
                         } else {
                             Spacer(Modifier.height(18.dp))
-                            navBeamCard(modifier = Modifier.fillMaxWidth(), padding = 16.dp) {
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Icon(NavBeamIcons.Pin, null, tint = colors.textLo, modifier = Modifier.size(32.dp))
-                                    Spacer(Modifier.height(8.dp))
-                                    Text(
-                                        "No saved destinations yet",
-                                        color = colors.textMid,
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        fontFamily = GeistFamily
-                                    )
-                                    Spacer(Modifier.height(2.dp))
-                                    Text(
-                                        "Bookmarked locations will appear here.",
-                                        color = colors.textLo,
-                                        fontSize = 12.sp,
-                                        fontFamily = GeistFamily
-                                    )
-                                }
-                            }
+                            NavBeamEmptyState(
+                                icon = NavBeamIcons.Pin,
+                                title = "No saved destinations yet",
+                                subtitle = "Bookmarked locations will appear here.",
+                                padding = 16.dp,
+                            )
                         }
                     } else {
                         // ACTIVE STATE: Destination Selected & Routing details
                         val routing = routeState.routing
                         val durationColor = when {
                             routing                                  -> colors.textHi
-                            routeState.trafficDelaySeconds > 600     -> Color(0xFFE53935)
-                            routeState.trafficDelaySeconds > 180     -> Color(0xFFFFA726)
-                            else                                     -> Color(0xFF43A047)
+                            routeState.trafficDelaySeconds > 600     -> colors.alert
+                            routeState.trafficDelaySeconds > 180     -> colors.warn
+                            else                                     -> colors.success
                         }
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -555,65 +531,29 @@ fun RouteScreen(
                                 .fillMaxWidth()
                                 .height(IntrinsicSize.Max)
                         ) {
-                            Column(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .fillMaxHeight()
-                                    .clip(RoundedCornerShape(14.dp))
-                                    .background(colors.surf1)
-                                    .border(1.dp, colors.line, RoundedCornerShape(14.dp))
-                                    .padding(13.dp),
-                            ) {
-                                Text(
-                                    text = if (routing) "\u2026" else (routeState.distanceText ?: "\u2014"),
-                                    color = colors.textHi,
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontFamily = GeistMonoFamily
-                                )
-                                Eyebrow("Distance", Modifier.padding(top = 4.dp))
-                            }
-                            Column(
-                                modifier = Modifier
-                                    .weight(1.2f)
-                                    .fillMaxHeight()
-                                    .clip(RoundedCornerShape(14.dp))
-                                    .background(colors.surf1)
-                                    .border(1.dp, colors.line, RoundedCornerShape(14.dp))
-                                    .padding(13.dp),
-                            ) {
-                                Text(
-                                    text = if (routing) "\u2026" else (routeState.durationText ?: "\u2014"),
-                                    color = durationColor,
-                                    fontSize = 18.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    fontFamily = GeistMonoFamily
-                                )
-                                Eyebrow("Duration", Modifier.padding(top = 4.dp))
-                            }
-                            Column(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .fillMaxHeight()
-                                    .clip(RoundedCornerShape(14.dp))
-                                    .background(colors.surf1)
-                                    .border(1.dp, colors.line, RoundedCornerShape(14.dp))
-                                    .padding(13.dp),
-                            ) {
-                                Text(
-                                    text = if (routing) "\u2026" else (routeState.etaText ?: "\u2014"),
-                                    color = colors.textHi,
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontFamily = GeistMonoFamily
-                                )
-                                Eyebrow("Arrive", Modifier.padding(top = 4.dp))
-                            }
+                            NavBeamMetricCard(
+                                value = if (routing) "\u2026" else (routeState.distanceText ?: "\u2014"),
+                                label = "Distance",
+                                modifier = Modifier.weight(1f).fillMaxHeight(),
+                            )
+                            NavBeamMetricCard(
+                                value = if (routing) "\u2026" else (routeState.durationText ?: "\u2014"),
+                                label = "Duration",
+                                valueColor = durationColor,
+                                emphasize = true,
+                                modifier = Modifier.weight(1.2f).fillMaxHeight(),
+                            )
+                            NavBeamMetricCard(
+                                value = if (routing) "\u2026" else (routeState.etaText ?: "\u2014"),
+                                label = "Arrive",
+                                modifier = Modifier.weight(1f).fillMaxHeight(),
+                            )
                         }
 
                         if (prefetchProgress.total > 0) {
                             Spacer(Modifier.height(14.dp))
-                            navBeamCard(
+                            val progressColor = if (prefetchProgress.isDownloading) colors.primary else colors.success
+                            NavBeamCard(
                                 modifier = Modifier.fillMaxWidth(),
                                 padding = 12.dp
                             ) {
@@ -630,7 +570,7 @@ fun RouteScreen(
                                             Icon(
                                                 imageVector = if (prefetchProgress.isDownloading) NavBeamIcons.Download else NavBeamIcons.Check,
                                                 contentDescription = null,
-                                                tint = if (prefetchProgress.isDownloading) Primary else Color(0xFF43A047),
+                                                tint = progressColor,
                                                 modifier = Modifier.size(18.dp)
                                             )
                                             Text(
@@ -643,7 +583,7 @@ fun RouteScreen(
                                         }
                                         Text(
                                             text = "${prefetchProgress.percentage}%",
-                                            color = if (prefetchProgress.isDownloading) Primary else Color(0xFF43A047),
+                                            color = progressColor,
                                             fontSize = 13.sp,
                                             fontWeight = FontWeight.Bold,
                                             fontFamily = GeistMonoFamily
@@ -652,21 +592,11 @@ fun RouteScreen(
 
                                     Spacer(Modifier.height(8.dp))
 
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(5.dp)
-                                            .clip(RoundedCornerShape(3.dp))
-                                            .background(colors.line)
-                                    ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxHeight()
-                                                .fillMaxWidth(fraction = (prefetchProgress.percentage / 100f).coerceIn(0f, 1f))
-                                                .clip(RoundedCornerShape(3.dp))
-                                                .background(if (prefetchProgress.isDownloading) Primary else Color(0xFF43A047))
-                                        )
-                                    }
+                                    NavBeamProgressBar(
+                                        progress = prefetchProgress.percentage / 100f,
+                                        color = progressColor,
+                                        height = 5.dp,
+                                    )
 
                                     Spacer(Modifier.height(4.dp))
 
@@ -681,7 +611,7 @@ fun RouteScreen(
                         }
 
                         Spacer(Modifier.height(10.dp))
-                        navBeamBtn(
+                        NavBeamButton(
                             label = "Save Route Offline (Both Directions)",
                             onClick = {
                                 routeViewModel.saveActiveRouteOffline(dashViewModel = dashViewModel)
@@ -700,16 +630,16 @@ fun RouteScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
                         ) {
-                            Eyebrow("Voice guidance")
+                            NavBeamEyebrow("Voice guidance")
                             Icon(
                                 imageVector = if (voice == "Off") NavBeamIcons.SpeakerOff else NavBeamIcons.Speaker,
                                 contentDescription = null,
-                                tint = if (voice == "Off") colors.textLo else Primary,
+                                tint = if (voice == "Off") colors.textLo else colors.primary,
                                 modifier = Modifier.size(18.dp),
                             )
                         }
 
-                        navBeamSegmented(
+                        NavBeamSegmentedControl(
                             options = listOf("Off", "Tone only", "Voice"),
                             selected = voice,
                             onSelect = {
@@ -735,7 +665,7 @@ fun RouteScreen(
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        navBeamBtn(
+                        NavBeamButton(
                             label = when {
                                 sent               -> "Starting..."
                                 routeState.routing -> "Routing..."
@@ -770,7 +700,7 @@ fun RouteScreen(
                             enabled = !sent,
                             modifier = Modifier.weight(1f),
                         )
-                        navBeamIconBtn(
+                        NavBeamIconButton(
                             icon = if (isSaved) NavBeamIcons.Trash else NavBeamIcons.Save,
                             onClick = {
                                 if (isSaved) {
@@ -780,8 +710,7 @@ fun RouteScreen(
                                 }
                             },
                             size = 58.dp,
-                            tint = if (isSaved) Alert else null,
-                            modifier = Modifier.background(colors.surf2, IconBtnShape)
+                            tint = if (isSaved) colors.alert else null,
                         )
                     }
                 } else {
@@ -793,7 +722,7 @@ fun RouteScreen(
             Box(
                 Modifier
                     .fillMaxSize()
-                    .background(MapBase),
+                    .background(colors.surf1),
             ) {
                 val isRedirecting = (dashUi.stage == io.github.saltmango.navbeam.viewmodel.ConnStage.STREAMING && routeState.destination != null)
                 if (hasMapsKey && !sent && !isRedirecting) {
@@ -820,7 +749,7 @@ fun RouteScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         if (sent || isRedirecting) {
-                            androidx.compose.material3.CircularProgressIndicator(color = Primary)
+                            androidx.compose.material3.CircularProgressIndicator(color = colors.primary)
                         } else {
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -830,7 +759,7 @@ fun RouteScreen(
                                 Icon(
                                     imageVector = NavBeamIcons.LocationPin,
                                     contentDescription = null,
-                                    tint = Alert,
+                                    tint = colors.alert,
                                     modifier = Modifier.size(32.dp)
                                 )
                                 Spacer(Modifier.height(10.dp))
@@ -901,7 +830,7 @@ fun RouteScreen(
                                             fontSize = 14.sp,
                                             fontFamily = GeistFamily
                                         ),
-                                        cursorBrush = SolidColor(Primary),
+                                        cursorBrush = SolidColor(colors.primary),
                                         singleLine = true,
                                         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
                                             imeAction = ImeAction.Search
@@ -938,7 +867,7 @@ fun RouteScreen(
                         var draggedIndex by remember { mutableStateOf<Int?>(null) }
                         var dragOffset by remember { mutableStateOf(0f) }
 
-                        navBeamCard(
+                        NavBeamCard(
                             modifier = Modifier.fillMaxWidth(),
                             padding = 8.dp
                         ) {
@@ -961,12 +890,12 @@ fun RouteScreen(
                                             modifier = Modifier
                                                 .size(20.dp)
                                                 .clip(CircleShape)
-                                                .background(if (index == 0) Primary else Alert),
+                                                .background(if (index == 0) colors.primary else colors.alert),
                                             contentAlignment = Alignment.Center
                                         ) {
                                             Text(
                                                 text = ('A' + index).toString(),
-                                                color = Color.White,
+                                                color = colors.onPrimary,
                                                 fontSize = 11.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 fontFamily = GeistMonoFamily
@@ -978,7 +907,7 @@ fun RouteScreen(
                                             modifier = Modifier
                                                 .weight(1f)
                                                 .clip(RoundedCornerShape(8.dp))
-                                                .border(1.dp, if (activeStopIndex == index) Primary else colors.line3, RoundedCornerShape(8.dp))
+                                                .border(1.dp, if (activeStopIndex == index) colors.primary else colors.line3, RoundedCornerShape(8.dp))
                                                 .background(colors.surf1)
                                                 .clickable {
                                                     routeViewModel.setActiveStopIndex(index)
@@ -1009,7 +938,7 @@ fun RouteScreen(
                                                                 fontSize = 13.5.sp,
                                                                 fontFamily = GeistFamily
                                                             ),
-                                                            cursorBrush = SolidColor(Primary),
+                                                            cursorBrush = SolidColor(colors.primary),
                                                             singleLine = true,
                                                             keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
                                                                 imeAction = ImeAction.Search
@@ -1122,13 +1051,13 @@ fun RouteScreen(
                                         Icon(
                                             imageVector = NavBeamIcons.Plus,
                                             contentDescription = "Add stop",
-                                            tint = Primary,
+                                            tint = colors.primary,
                                             modifier = Modifier.size(16.dp)
                                         )
                                         Spacer(Modifier.width(6.dp))
                                         Text(
                                             text = "Add stop",
-                                            color = Primary,
+                                            color = colors.primary,
                                             fontSize = 13.5.sp,
                                             fontWeight = FontWeight.SemiBold,
                                             fontFamily = GeistFamily
@@ -1142,7 +1071,7 @@ fun RouteScreen(
                     // Floating suggestions dropdown
                     if (predictions.isNotEmpty() || searchError != null) {
                         Spacer(Modifier.height(8.dp))
-                        navBeamCard(
+                        NavBeamCard(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .heightIn(max = 300.dp),
@@ -1157,7 +1086,7 @@ fun RouteScreen(
                                 ) {
                                     Text(
                                         text = searchError!!,
-                                        color = Alert,
+                                        color = colors.alert,
                                         fontSize = 13.5.sp,
                                         fontFamily = GeistFamily
                                     )
@@ -1170,7 +1099,7 @@ fun RouteScreen(
                                 ) {
                                     predictions.forEachIndexed { index, prediction ->
                                         if (index > 0) {
-                                            navBeamDivider(Modifier.padding(horizontal = 8.dp))
+                                            NavBeamDivider(Modifier.padding(horizontal = 8.dp))
                                         }
                                         Column(
                                             modifier = Modifier
@@ -1252,16 +1181,16 @@ fun RouteScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
                     ) {
-                        Eyebrow("Navigation mode")
+                        NavBeamEyebrow("Navigation mode")
                         Icon(
                             imageVector = if (dashUi.navMode == "Map") NavBeamIcons.Route else NavBeamIcons.Navi,
                             contentDescription = null,
-                            tint = if (dashUi.navMode == "Map") Primary else colors.textLo,
+                            tint = if (dashUi.navMode == "Map") colors.primary else colors.textLo,
                             modifier = Modifier.size(16.dp),
                         )
                     }
 
-                    navBeamSegmented(
+                    NavBeamSegmentedControl(
                         options = listOf("Map", "Arrow"),
                         selected = dashUi.navMode,
                         onSelect = { mode ->
@@ -1277,8 +1206,8 @@ fun RouteScreen(
                 if (dashUi.navMode == "Map") {
                     // 3. Map Rotation (Heading-up Map)
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Eyebrow("Map Rotation")
-                        navBeamSegmented(
+                        NavBeamEyebrow("Map Rotation")
+                        NavBeamSegmentedControl(
                             options = listOf("North-Up", "Heading-Up"),
                             selected = if (dashUi.headingUp) "Heading-Up" else "North-Up",
                             onSelect = { dashViewModel.toggleHeadingUp() },
@@ -1288,8 +1217,8 @@ fun RouteScreen(
 
                     // 4. Stream Quality
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Eyebrow("Stream Quality")
-                        navBeamSegmented(
+                        NavBeamEyebrow("Stream Quality")
+                        NavBeamSegmentedControl(
                             options = listOf("Max", "Balanced", "Battery Saver", "Custom"),
                             selected = dashUi.streamQuality,
                             onSelect = { dashViewModel.setStreamQuality(it) },
@@ -1308,7 +1237,7 @@ fun RouteScreen(
                     )
 
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Eyebrow("Route Line Color")
+                        NavBeamEyebrow("Route Line Color")
 
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -1382,7 +1311,7 @@ fun RouteScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Eyebrow("Route Line Thickness")
+                            NavBeamEyebrow("Route Line Thickness")
                             Text(
                                 text = "${routeLineWidth.toInt()} dp",
                                 color = colors.textHi,
@@ -1399,8 +1328,8 @@ fun RouteScreen(
                             valueRange = 4f..20f,
                             steps = 15,
                             colors = androidx.compose.material3.SliderDefaults.colors(
-                                thumbColor = Primary,
-                                activeTrackColor = Primary,
+                                thumbColor = colors.primary,
+                                activeTrackColor = colors.primary,
                                 inactiveTrackColor = colors.line3,
                                 activeTickColor = Color.Transparent,
                                 inactiveTickColor = Color.Transparent
@@ -1438,7 +1367,7 @@ fun RouteScreen(
                             modifier = Modifier.padding(top = 2.dp)
                         )
                     }
-                    navBeamToggle(on = keepAwake, onChange = {
+                    NavBeamToggle(on = keepAwake, onChange = {
                         keepAwake = it
                         SettingsPrefs.setKeepAwake(ctx, it)
                     })
@@ -1452,11 +1381,11 @@ fun RouteScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.55f))
+                .background(colors.scrim)
                 .clickable(enabled = false) {},
             contentAlignment = Alignment.Center
         ) {
-            navBeamCard(
+            NavBeamCard(
                 glow = dashUi.stage != io.github.saltmango.navbeam.viewmodel.ConnStage.ERROR,
                 padding = 20.dp,
                 modifier = Modifier
@@ -1491,7 +1420,7 @@ fun RouteScreen(
                             io.github.saltmango.navbeam.viewmodel.ConnStage.ERROR -> dashUi.errorMessage ?: "Check display power and proximity."
                             else -> "Please wait..."
                         },
-                        color = if (dashUi.stage == io.github.saltmango.navbeam.viewmodel.ConnStage.ERROR) Alert else colors.textMid,
+                        color = if (dashUi.stage == io.github.saltmango.navbeam.viewmodel.ConnStage.ERROR) colors.alert else colors.textMid,
                         fontSize = 13.sp,
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                         fontFamily = GeistFamily
@@ -1505,43 +1434,18 @@ fun RouteScreen(
                             modifier = Modifier
                                 .size(48.dp)
                                 .clip(CircleShape)
-                                .background(Alert.copy(alpha = 0.12f))
+                                .background(colors.alertTint)
                         ) {
                             Icon(
                                 imageVector = NavBeamIcons.X,
                                 contentDescription = "Error",
-                                tint = Alert,
+                                tint = colors.alert,
                                 modifier = Modifier.size(24.dp)
                             )
                         }
                     } else {
-                        val infiniteProgress = rememberInfiniteTransition(label = "overlay-progress")
-                        val progressShift by infiniteProgress.animateFloat(
-                            initialValue = 0f, targetValue = 1f,
-                            animationSpec = infiniteRepeatable(
-                                animation = tween(1200, easing = LinearEasing),
-                                repeatMode = RepeatMode.Restart
-                            ),
-                            label = "progress-shift"
-                        )
-                        BoxWithConstraints(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(4.dp)
-                                .clip(RoundedCornerShape(2.dp))
-                                .background(colors.line)
-                        ) {
-                            val width = maxWidth
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxHeight()
-                                    .width(width * 0.35f)
-                                    .offset(x = width * 0.65f * progressShift)
-                                    .clip(RoundedCornerShape(2.dp))
-                                    .background(Primary)
-                                )
-                            }
-                        }
+                        NavBeamProgressBar(color = colors.primary, height = 4.dp)
+                    }
 
                         Spacer(Modifier.height(24.dp))
 
@@ -1550,7 +1454,7 @@ fun RouteScreen(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             if (dashUi.stage == io.github.saltmango.navbeam.viewmodel.ConnStage.ERROR || dashUi.needsWifiOn) {
-                                navBeamBtn(
+                                NavBeamButton(
                                     label = "Cancel",
                                     onClick = {
                                         dashViewModel.disconnect()
@@ -1560,7 +1464,7 @@ fun RouteScreen(
                                     size = BtnSize.Sm,
                                     modifier = Modifier.weight(1f)
                                 )
-                                navBeamBtn(
+                                NavBeamButton(
                                     label = "Connect",
                                     onClick = {
                                         val wm = ctx.applicationContext.getSystemService(android.content.Context.WIFI_SERVICE) as android.net.wifi.WifiManager
@@ -1578,7 +1482,7 @@ fun RouteScreen(
                                     modifier = Modifier.weight(1f)
                                 )
                             } else {
-                                navBeamBtn(
+                                NavBeamButton(
                                     label = "Cancel",
                                     onClick = {
                                         dashViewModel.disconnect()
@@ -1619,7 +1523,7 @@ private fun SaveLocationDialog(defaultName: String, onSave: (String, String) -> 
     var note by remember { mutableStateOf("") }
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismiss,
-        confirmButton = { androidx.compose.material3.TextButton(enabled = name.isNotBlank(), onClick = { onSave(name.trim(), note.trim()) }) { Text("Save", color = if (name.isNotBlank()) Primary else colors.textLo) } },
+        confirmButton = { androidx.compose.material3.TextButton(enabled = name.isNotBlank(), onClick = { onSave(name.trim(), note.trim()) }) { Text("Save", color = if (name.isNotBlank()) colors.primary else colors.textLo) } },
         dismissButton = { androidx.compose.material3.TextButton(onClick = onDismiss) { Text("Cancel", color = colors.textMid) } },
         title = { Text("Save destination", color = colors.textHi) },
         text = {
@@ -1639,8 +1543,8 @@ private fun EditLocationDialog(loc: io.github.saltmango.navbeam.data.SavedLocati
     var note by remember { mutableStateOf(loc.note) }
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismiss,
-        confirmButton = { androidx.compose.material3.TextButton(enabled = name.isNotBlank(), onClick = { onSave(name.trim(), note.trim()) }) { Text("Save", color = if (name.isNotBlank()) Primary else colors.textLo) } },
-        dismissButton = { androidx.compose.material3.TextButton(onClick = onDelete) { Text("Delete", color = Alert) } },
+        confirmButton = { androidx.compose.material3.TextButton(enabled = name.isNotBlank(), onClick = { onSave(name.trim(), note.trim()) }) { Text("Save", color = if (name.isNotBlank()) colors.primary else colors.textLo) } },
+        dismissButton = { androidx.compose.material3.TextButton(onClick = onDelete) { Text("Delete", color = colors.alert) } },
         title = { Text("Edit destination", color = colors.textHi) },
         text = {
             Column {
