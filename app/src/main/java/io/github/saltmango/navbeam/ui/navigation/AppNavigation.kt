@@ -167,13 +167,22 @@ fun AppNavigation(
         }
 
         val applyStatusBarPadding = currentRoute !in listOf(Screen.Route.route, Screen.Dash.route)
+        val statusBarBg = if (applyStatusBarPadding && currentRoute != Screen.Login.route) {
+            colors.surf1
+        } else {
+            colors.bg1
+        }
         Column(
             Modifier
                 .fillMaxSize()
-                .background(colors.bg1)
+                .background(statusBarBg)
                 .then(if (applyStatusBarPadding) Modifier.statusBarsPadding() else Modifier)
         ) {
-            Box(Modifier.weight(1f)) {
+            Box(
+                Modifier
+                    .weight(1f)
+                    .background(colors.bg1)
+            ) {
                 val tabRoutes = remember {
                     listOf(
                         Screen.Home.route,

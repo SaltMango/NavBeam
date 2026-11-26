@@ -778,82 +778,88 @@ fun NavBeamScreenHeader(
 ) {
     val colors = NavBeamTheme.colors
     Column(modifier = modifier.fillMaxWidth()) {
-        TopAppBar(
-            title = {
-                if (wordmark) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.ic_navbeam_brand),
-                            contentDescription = "NavBeam Logo",
-                            tint = Color.Unspecified,
-                            modifier = Modifier.size(24.dp),
-                        )
-                        Text(
-                            text = "NavBeam",
-                            color = colors.textHi,
-                            fontFamily = GeistMonoFamily,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 21.sp,
-                            letterSpacing = 0.14.sp,
-                        )
-                    }
-                } else {
-                    Column {
-                        if (eyebrow != null) NavBeamEyebrow(eyebrow, Modifier.padding(bottom = 1.dp))
-                        if (title != null) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(colors.surf1),
+        ) {
+            TopAppBar(
+                title = {
+                    if (wordmark) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_navbeam_brand),
+                                contentDescription = "NavBeam Logo",
+                                tint = Color.Unspecified,
+                                modifier = Modifier.size(24.dp),
+                            )
                             Text(
-                                text = title,
+                                text = "NavBeam",
                                 color = colors.textHi,
-                                style = NavBeamTheme.typography.screenTitle,
+                                fontFamily = GeistMonoFamily,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 21.sp,
+                                letterSpacing = 0.14.sp,
                             )
                         }
+                    } else {
+                        Column {
+                            if (eyebrow != null) NavBeamEyebrow(eyebrow, Modifier.padding(bottom = 1.dp))
+                            if (title != null) {
+                                Text(
+                                    text = title,
+                                    color = colors.textHi,
+                                    style = NavBeamTheme.typography.screenTitle,
+                                )
+                            }
+                        }
                     }
-                }
-            },
-            navigationIcon = {
-                if (onBack != null) {
-                    NavBeamIconButton(
-                        icon = Icons.Outlined.ChevronLeft,
-                        onClick = onBack,
-                        modifier = Modifier.padding(end = 8.dp),
-                        contentDescription = "Back",
-                    )
-                }
-            },
-            actions = {
-                if (trailing != null) {
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier.padding(end = 4.dp),
-                    ) {
-                        trailing()
+                },
+                navigationIcon = {
+                    if (onBack != null) {
+                        NavBeamIconButton(
+                            icon = Icons.Outlined.ChevronLeft,
+                            onClick = onBack,
+                            modifier = Modifier.padding(end = 8.dp),
+                            contentDescription = "Back",
+                        )
                     }
-                }
-            },
-            colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = colors.surf1,
-                titleContentColor = colors.textHi,
-                navigationIconContentColor = colors.textHi,
-                actionIconContentColor = colors.textHi,
-            ),
-        )
-        if (hint != null) {
-            Text(
-                text = hint,
-                color = colors.textLo,
-                fontSize = 12.sp,
-                fontFamily = GeistFamily,
-                lineHeight = 15.sp,
-                modifier = Modifier.padding(
-                    start = if (onBack != null) 60.dp else 16.dp,
-                    top = 2.dp,
-                    end = 16.dp,
-                    bottom = 6.dp,
+                },
+                actions = {
+                    if (trailing != null) {
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier.padding(end = 4.dp),
+                        ) {
+                            trailing()
+                        }
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = colors.surf1,
+                    titleContentColor = colors.textHi,
+                    navigationIconContentColor = colors.textHi,
+                    actionIconContentColor = colors.textHi,
                 ),
             )
+            if (hint != null) {
+                Text(
+                    text = hint,
+                    color = colors.textLo,
+                    fontSize = 12.sp,
+                    fontFamily = GeistFamily,
+                    lineHeight = 15.sp,
+                    modifier = Modifier.padding(
+                        start = if (onBack != null) 60.dp else 16.dp,
+                        top = 2.dp,
+                        end = 16.dp,
+                        bottom = 8.dp,
+                    ),
+                )
+            }
         }
         // Subtle downward drop shadow
         Box(

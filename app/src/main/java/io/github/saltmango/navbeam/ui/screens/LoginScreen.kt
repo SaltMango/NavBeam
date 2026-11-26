@@ -17,6 +17,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -220,11 +221,12 @@ fun RiderGetStartedButton(
         label = "chevron-offset",
     )
 
+    val shape = NavBeamTheme.shapes.button
     val gradientStops = if (colors.isDark) {
         listOf(
-            Color(0xFF1A476E),
-            Color(0xFF235B8C),
-            Color(0xFF2C70AA),
+            colors.surf2,
+            colors.surf3,
+            colors.surf2,
         )
     } else {
         listOf(
@@ -233,7 +235,10 @@ fun RiderGetStartedButton(
             colors.primaryBright,
         )
     }
-    val contentColor = Color.White
+    val contentColor = if (colors.isDark) colors.textHi else colors.onPrimary
+    val accentColor = if (colors.isDark) colors.primary else colors.onPrimary
+    val borderHighlight = if (colors.isDark) colors.primary.copy(alpha = 0.65f) else Color.White.copy(alpha = 0.40f)
+    val borderEdge = if (colors.isDark) colors.primary.copy(alpha = 0.25f) else colors.primaryDeep.copy(alpha = 0.50f)
 
     Box(
         modifier = modifier
@@ -243,18 +248,24 @@ fun RiderGetStartedButton(
                 scaleX = scale
                 scaleY = scale
             }
-            .clip(RoundedCornerShape(16.dp))
+            .shadow(
+                elevation = 12.dp,
+                shape = shape,
+                ambientColor = colors.primaryGlow,
+                spotColor = colors.primaryGlow,
+            )
+            .clip(shape)
             .background(Brush.horizontalGradient(gradientStops))
             .border(
                 width = 1.dp,
                 brush = Brush.verticalGradient(
                     listOf(
-                        contentColor.copy(alpha = if (colors.isDark) 0.3f else 0.4f),
-                        contentColor.copy(alpha = 0.08f),
-                        colors.shadow,
+                        borderHighlight,
+                        borderEdge,
+                        borderHighlight,
                     ),
                 ),
-                shape = RoundedCornerShape(16.dp),
+                shape = shape,
             )
             .clickable(
                 interactionSource = interactionSource,
@@ -266,7 +277,7 @@ fun RiderGetStartedButton(
             .padding(horizontal = 14.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Canvas(modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(16.dp))) {
+        Canvas(modifier = Modifier.fillMaxSize().clip(shape)) {
             val strokeWidth = 1.5.dp.toPx()
             val streakColor = contentColor.copy(alpha = 0.1f)
             val width = size.width
@@ -291,14 +302,14 @@ fun RiderGetStartedButton(
                 modifier = Modifier
                     .size(40.dp)
                     .clip(CircleShape)
-                    .background(Color.Black.copy(alpha = 0.18f))
-                    .border(1.dp, contentColor.copy(alpha = 0.24f), CircleShape),
+                    .background(if (colors.isDark) colors.primaryTint else contentColor.copy(alpha = 0.14f))
+                    .border(1.dp, if (colors.isDark) colors.primaryTint2 else contentColor.copy(alpha = 0.24f), CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     imageVector = NavBeamIcons.Motor,
                     contentDescription = "Motorcycle Icon",
-                    tint = contentColor,
+                    tint = accentColor,
                     modifier = Modifier.size(23.dp),
                 )
             }
@@ -324,13 +335,13 @@ fun RiderGetStartedButton(
                 Icon(
                     imageVector = NavBeamIcons.ChevronRight,
                     contentDescription = null,
-                    tint = contentColor.copy(alpha = 0.45f),
+                    tint = accentColor.copy(alpha = 0.45f),
                     modifier = Modifier.size(19.dp),
                 )
                 Icon(
                     imageVector = NavBeamIcons.ChevronRight,
                     contentDescription = null,
-                    tint = contentColor.copy(alpha = 0.95f),
+                    tint = accentColor.copy(alpha = 0.95f),
                     modifier = Modifier.size(19.dp),
                 )
             }

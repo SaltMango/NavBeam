@@ -202,163 +202,149 @@ fun ProfileSetupScreen(
         NavBeamScreenHeader(
             eyebrow = if (isOnboarding) "Setup" else "Configuration",
             title = "Hardware Profile",
-            hint = if (isOnboarding)
-                "Import your display's .json profile to configure Wi-Fi, video stream, and protocol."
-            else
-                "Manage display dimensions, network parameters, and control bindings.",
+            hint = "Import your motorcycle display's .json profile.",
             onBack = onBack,
             trailing = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (activeProfile.isConfigured) {
-                        IconButton(
-                            onClick = { exportLauncher.launch("${activeProfile.id}.json") },
-                            modifier = Modifier.size(38.dp)
-                        ) {
-                            Icon(
-                                imageVector = NavBeamIcons.Share,
-                                contentDescription = "Export active profile",
-                                tint = colors.textMid,
-                                modifier = Modifier.size(19.dp)
-                            )
-                        }
-                    } else if (isOnboarding && onSkip != null) {
-                        TextButton(onClick = onSkip) {
-                            Text(
-                                text = "Skip",
-                                color = colors.textMid,
-                                fontSize = 13.5.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                fontFamily = GeistFamily
-                            )
-                        }
+                if (activeProfile.isConfigured) {
+                    IconButton(
+                        onClick = { exportLauncher.launch("${activeProfile.id}.json") },
+                        modifier = Modifier.size(38.dp)
+                    ) {
+                        Icon(
+                            imageVector = NavBeamIcons.Share,
+                            contentDescription = "Export active profile",
+                            tint = colors.textMid,
+                            modifier = Modifier.size(19.dp)
+                        )
                     }
                 }
             }
         )
 
-        Column(
+        BoxWithConstraints(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // 1. Hero Card: Active Profile Telemetry OR Empty Vendor-Neutral Explanation
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = maxHeight)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 20.dp, vertical = 22.dp),
+                verticalArrangement = Arrangement.spacedBy(24.dp)
+            ) {
+            // 1. Hero Card: Active Profile Telemetry OR Friendly Empty Status + Plain Instructions
             if (activeProfile.isConfigured) {
                 ActiveProfileHeroCard(profile = activeProfile)
             } else {
                 EmptyProfileHeroCard()
+                Text(
+                    text = "To connect your phone to your bike's screen, upload or paste the .json config file for your display model.",
+                    color = colors.textHi,
+                    fontSize = 16.sp,
+                    lineHeight = 23.sp,
+                    fontFamily = GeistFamily,
+                    modifier = Modifier.padding(horizontal = 2.dp)
+                )
             }
 
-            // 2. Import Card (Upload .json file or Paste JSON + inline error banner)
-            NavBeamCard(modifier = Modifier.fillMaxWidth(), padding = 16.dp) {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            // 2. Import Actions (Upload .json file or Paste JSON + inline error banner)
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 2.dp)
+                ) {
+                    NavBeamEyebrow(text = "Add Config File")
+                    if (isImporting) {
+                        CircularProgressIndicator(
+                            color = colors.primary,
+                            strokeWidth = 2.dp,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+
+                if (importError != null) {
                     Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        modifier = Modifier.fillMaxWidth()
+                        verticalAlignment = Alignment.Top,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(colors.alertTint)
+                            .border(1.dp, colors.alert.copy(alpha = 0.35f), RoundedCornerShape(12.dp))
+                            .padding(14.dp)
                     ) {
+                        Icon(
+                            imageVector = NavBeamIcons.ErrorOutline,
+                            contentDescription = null,
+                            tint = colors.alert,
+                            modifier = Modifier
+                                .padding(top = 1.dp)
+                                .size(18.dp)
+                        )
+                        Spacer(Modifier.width(10.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Load Profile JSON",
-                                color = colors.textHi,
-                                fontSize = 15.5.sp,
+                                text = "Invalid Profile",
+                                color = colors.alert,
+                                fontSize = 12.5.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 fontFamily = GeistFamily
                             )
                             Text(
-                                text = "Validated on-device (≤ 64 KB, strict UTF-8, private IPv4 only).",
-                                color = colors.textLo,
+                                text = importError ?: "",
+                                color = colors.textHi,
                                 fontSize = 12.sp,
-                                lineHeight = 16.sp,
+                                lineHeight = 16.5.sp,
                                 modifier = Modifier.padding(top = 2.dp)
                             )
                         }
-                        if (isImporting) {
-                            CircularProgressIndicator(
-                                color = colors.primary,
-                                strokeWidth = 2.dp,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                    }
-
-                    if (importError != null) {
-                        Row(
-                            verticalAlignment = Alignment.Top,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(colors.alertTint)
-                                .border(1.dp, colors.alert.copy(alpha = 0.35f), RoundedCornerShape(12.dp))
-                                .padding(12.dp)
+                        IconButton(
+                            onClick = { importError = null },
+                            modifier = Modifier.size(24.dp)
                         ) {
                             Icon(
-                                imageVector = NavBeamIcons.ErrorOutline,
-                                contentDescription = null,
-                                tint = colors.alert,
-                                modifier = Modifier
-                                    .padding(top = 1.dp)
-                                    .size(18.dp)
+                                imageVector = NavBeamIcons.X,
+                                contentDescription = "Dismiss error",
+                                tint = colors.textMid,
+                                modifier = Modifier.size(15.dp)
                             )
-                            Spacer(Modifier.width(10.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "Profile rejected",
-                                    color = colors.alert,
-                                    fontSize = 12.5.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontFamily = GeistFamily
-                                )
-                                Text(
-                                    text = importError ?: "",
-                                    color = colors.textHi,
-                                    fontSize = 12.sp,
-                                    lineHeight = 16.5.sp,
-                                    modifier = Modifier.padding(top = 2.dp)
-                                )
-                            }
-                            IconButton(
-                                onClick = { importError = null },
-                                modifier = Modifier.size(24.dp)
-                            ) {
-                                Icon(
-                                    imageVector = NavBeamIcons.X,
-                                    contentDescription = "Dismiss error",
-                                    tint = colors.textMid,
-                                    modifier = Modifier.size(15.dp)
-                                )
-                            }
                         }
                     }
+                }
 
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        NavBeamButton(
-                            label = if (isImporting) "Reading…" else "Upload .json",
-                            onClick = { importLauncher.launch(openDocumentMimeTypes) },
-                            icon = NavBeamIcons.UploadFile,
-                            variant = BtnVariant.Primary,
-                            size = BtnSize.Md,
-                            enabled = !isImporting,
-                            modifier = Modifier.weight(1f)
-                        )
-                        NavBeamButton(
-                            label = "Paste JSON",
-                            onClick = {
-                                pasteError = null
-                                showPasteDialog = true
-                            },
-                            icon = NavBeamIcons.Paste,
-                            variant = BtnVariant.Secondary,
-                            size = BtnSize.Md,
-                            enabled = !isImporting,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    NavBeamButton(
+                        label = if (isImporting) "Reading…" else "Upload .json",
+                        onClick = { importLauncher.launch(openDocumentMimeTypes) },
+                        icon = NavBeamIcons.UploadFile,
+                        variant = BtnVariant.Primary,
+                        size = BtnSize.Lg,
+                        enabled = !isImporting,
+                        modifier = Modifier.weight(1f)
+                    )
+                    NavBeamButton(
+                        label = "Paste JSON",
+                        onClick = {
+                            pasteError = null
+                            showPasteDialog = true
+                        },
+                        icon = NavBeamIcons.Paste,
+                        variant = BtnVariant.Secondary,
+                        size = BtnSize.Lg,
+                        enabled = !isImporting,
+                        modifier = Modifier.weight(1f)
+                    )
                 }
             }
 
@@ -516,53 +502,34 @@ fun ProfileSetupScreen(
                 }
             }
 
-            // 4. Resources & Schema Template Card
-            NavBeamCard(modifier = Modifier.fillMaxWidth(), padding = 16.dp) {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(colors.surf2)
-                                .border(1.dp, colors.line, RoundedCornerShape(10.dp))
-                        ) {
-                            Icon(
-                                imageVector = NavBeamIcons.Code,
-                                contentDescription = null,
-                                tint = colors.textMid,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                        Spacer(Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Need a Device Profile?",
-                                color = colors.textHi,
-                                fontSize = 14.5.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                fontFamily = GeistFamily
-                            )
-                            Text(
-                                text = "Find community profiles or build one from the DashProfile.json template.",
-                                color = colors.textLo,
-                                fontSize = 12.sp,
-                                lineHeight = 16.sp,
-                                modifier = Modifier.padding(top = 2.dp)
-                            )
-                        }
+                Spacer(Modifier.weight(1f))
+
+                // 4. Resources & Schema Template Links
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Column(modifier = Modifier.padding(horizontal = 2.dp)) {
+                        NavBeamEyebrow(text = "Don't Have a Config File?")
+                        Text(
+                            text = "Find one for your bike on GitHub or create your own from the template.",
+                            color = colors.textMid,
+                            fontSize = 14.sp,
+                            lineHeight = 20.sp,
+                            fontFamily = GeistFamily,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
                     }
 
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         NavBeamButton(
                             label = "GitHub Repo",
                             onClick = { openExternalUrl(COMMUNITY_GITHUB_URL) },
                             icon = NavBeamIcons.OpenInNew,
-                            variant = BtnVariant.Secondary,
+                            variant = BtnVariant.Ghost,
                             size = BtnSize.Sm,
                             modifier = Modifier.weight(1f)
                         )
@@ -570,15 +537,13 @@ fun ProfileSetupScreen(
                             label = "JSON Template",
                             onClick = { openExternalUrl(TEMPLATE_SCHEMA_URL) },
                             icon = NavBeamIcons.Code,
-                            variant = BtnVariant.Secondary,
+                            variant = BtnVariant.Ghost,
                             size = BtnSize.Sm,
                             modifier = Modifier.weight(1f)
                         )
                     }
                 }
             }
-
-            Spacer(Modifier.height(6.dp))
         }
 
         // Bottom Sticky CTA
@@ -592,22 +557,23 @@ fun ProfileSetupScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                    .padding(horizontal = 20.dp, vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 val hasProfile = activeProfile.isConfigured
                 if (!hasProfile && isOnboarding && onSkip != null) {
                     NavBeamButton(
-                        label = "Skip for now · Do it later",
+                        label = "Skip for now",
                         onClick = onSkip,
                         variant = BtnVariant.Secondary,
                         size = BtnSize.Lg,
                         modifier = Modifier.fillMaxWidth()
                     )
                     Text(
-                        text = "You can load a .json profile anytime in Menu → Hardware Profile.",
-                        color = colors.textLo,
-                        fontSize = 11.5.sp,
+                        text = "You can add one later in Menu → Hardware Profile.",
+                        color = colors.textMid,
+                        fontSize = 13.sp,
+                        fontFamily = GeistFamily,
                         modifier = Modifier.align(Alignment.CenterHorizontally)
                     )
                 } else {
@@ -627,14 +593,6 @@ fun ProfileSetupScreen(
                             .fillMaxWidth()
                             .alpha(if (hasProfile) 1f else 0.55f)
                     )
-                    if (isOnboarding && hasProfile && !allPermissionsGranted) {
-                        Text(
-                            text = "Next: Android will ask for Wi-Fi / Nearby Devices, Location & Notifications.",
-                            color = colors.textLo,
-                            fontSize = 11.5.sp,
-                            modifier = Modifier.align(Alignment.CenterHorizontally)
-                        )
-                    }
                 }
             }
         }
@@ -662,7 +620,7 @@ fun ProfileSetupScreen(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
-                            text = "Paste a complete DashProfile JSON object:",
+                            text = "Paste your profile JSON below:",
                             color = colors.textLo,
                             fontSize = 12.sp,
                             modifier = Modifier.weight(1f)
@@ -844,8 +802,8 @@ fun ProfileSetupScreen(
                                 value = "${candidate.protocol.magic} · ${candidate.protocol.authType}"
                             )
                             VerifySpecLine(
-                                label = "Bindings",
-                                value = "${candidate.maneuvers.size} maneuvers · ${candidate.inputs.size} inputs"
+                                label = "Controls",
+                                value = "${candidate.maneuvers.size} turn icons · ${candidate.inputs.size} buttons"
                             )
                         }
                     }
@@ -865,7 +823,7 @@ fun ProfileSetupScreen(
                         )
                         Spacer(Modifier.width(8.dp))
                         Text(
-                            text = "Sanitation passed: ≤ 64 KB UTF-8, private IPv4 & safe port bounds.",
+                            text = "Profile checks passed — ready to use.",
                             color = colors.primary,
                             fontSize = 11.5.sp,
                             fontWeight = FontWeight.Medium,
@@ -944,68 +902,49 @@ fun ProfileSetupScreen(
 @Composable
 private fun EmptyProfileHeroCard() {
     val colors = NavBeamTheme.colors
-    NavBeamCard(glow = true, modifier = Modifier.fillMaxWidth(), padding = 16.dp) {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    NavBeamCard(glow = true, modifier = Modifier.fillMaxWidth(), padding = 20.dp) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier.fillMaxWidth()
+        ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.weight(1f)
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(colors.primaryTint)
-                    ) {
-                        Icon(
-                            imageVector = NavBeamIcons.Dash,
-                            contentDescription = null,
-                            tint = colors.primary,
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
-                    Spacer(Modifier.width(12.dp))
-                    Column {
-                        Text(
-                            text = "Vendor-Neutral Engine",
-                            color = colors.textHi,
-                            fontSize = 15.5.sp,
-                            fontWeight = FontWeight.Bold,
-                            fontFamily = GeistFamily
-                        )
-                        Text(
-                            text = "Profile required before connecting",
-                            color = colors.textLo,
-                            fontSize = 12.sp
-                        )
-                    }
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(colors.primaryTint)
+                ) {
+                    Icon(
+                        imageVector = NavBeamIcons.Dash,
+                        contentDescription = null,
+                        tint = colors.primary,
+                        modifier = Modifier.size(22.dp)
+                    )
                 }
-                NavBeamChip(label = "REQUIRED", tone = ChipTone.Warn, dot = true)
+                Spacer(Modifier.width(12.dp))
+                Column {
+                    Text(
+                        text = "No Bike Display Added",
+                        color = colors.textHi,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = GeistFamily
+                    )
+                    Text(
+                        text = "Add a config file to get started",
+                        color = colors.textMid,
+                        fontSize = 14.sp,
+                        fontFamily = GeistFamily
+                    )
+                }
             }
-
-            Text(
-                text = "NavBeam ships with zero built-in manufacturer keys or display presets. Upload a .json hardware profile for your circular or rectangular display (motorcycle TFT or DIY receiver) to configure:",
-                color = colors.textMid,
-                fontSize = 12.5.sp,
-                lineHeight = 18.sp
-            )
-
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                ProfileCapabilityRow(
-                    title = "Wi-Fi & UDP Sockets",
-                    detail = "SSID prefix, private gateway IP, TX / RX / RTP ports"
-                )
-                ProfileCapabilityRow(
-                    title = "Display & H.264 Stream",
-                    detail = "Resolution, circle/rectangle mask, bitrate & frame pacing"
-                )
-                ProfileCapabilityRow(
-                    title = "Protocol & Controls",
-                    detail = "Packet framing, auth mode, maneuver glyphs & buttons"
-                )
-            }
+            Spacer(Modifier.width(8.dp))
+            NavBeamChip(label = "NOT SET", tone = ChipTone.Neutral, dot = true)
         }
     }
 }
@@ -1024,8 +963,8 @@ private fun ActiveProfileHeroCard(profile: DashProfile) {
         else -> profile.protocol.authType
     }
 
-    NavBeamCard(glow = true, modifier = Modifier.fillMaxWidth(), padding = 16.dp) {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    NavBeamCard(glow = true, modifier = Modifier.fillMaxWidth(), padding = 20.dp) {
+        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
@@ -1111,9 +1050,9 @@ private fun ActiveProfileHeroCard(profile: DashProfile) {
                     modifier = Modifier.weight(1f)
                 )
                 SpecTile(
-                    label = "MAPPINGS",
-                    value = "${profile.maneuvers.size} glyphs",
-                    sub = "${profile.inputs.size} button bindings",
+                    label = "CONTROLS",
+                    value = "${profile.maneuvers.size} icons",
+                    sub = "${profile.inputs.size} button actions",
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -1123,42 +1062,6 @@ private fun ActiveProfileHeroCard(profile: DashProfile) {
                 color = colors.textLo,
                 fontSize = 11.sp,
                 fontFamily = GeistMonoFamily
-            )
-        }
-    }
-}
-
-@Composable
-private fun ProfileCapabilityRow(title: String, detail: String) {
-    val colors = NavBeamTheme.colors
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .background(colors.surf2)
-            .border(1.dp, colors.line, RoundedCornerShape(10.dp))
-            .padding(horizontal = 12.dp, vertical = 9.dp)
-    ) {
-        Box(
-            modifier = Modifier
-                .size(6.dp)
-                .clip(CircleShape)
-                .background(colors.primary)
-        )
-        Spacer(Modifier.width(10.dp))
-        Column {
-            Text(
-                text = title,
-                color = colors.textHi,
-                fontSize = 12.5.sp,
-                fontWeight = FontWeight.SemiBold,
-                fontFamily = GeistFamily
-            )
-            Text(
-                text = detail,
-                color = colors.textLo,
-                fontSize = 11.5.sp
             )
         }
     }
