@@ -143,12 +143,33 @@ private fun CompactThemeSelector(
                     .weight(1f)
                     .height(28.dp)
                     .clip(CircleShape)
-                    .background(if (active) colors.primaryTint else Color.Transparent)
+                    .background(
+                        if (active) {
+                            if (colors.isDark) colors.primaryTint2 else colors.primaryTint
+                        } else {
+                            Color.Transparent
+                        },
+                    )
+                    .then(
+                        if (active) {
+                            Modifier.border(
+                                width = 1.dp,
+                                color = colors.primary.copy(alpha = if (colors.isDark) 0.4f else 0.25f),
+                                shape = CircleShape,
+                            )
+                        } else {
+                            Modifier
+                        },
+                    )
                     .clickable { onThemeModeChange(mode) },
             ) {
                 Text(
                     text = label,
-                    color = if (active) colors.primary else colors.textLo,
+                    color = if (active) {
+                        if (colors.isDark) colors.textHi else colors.primary
+                    } else {
+                        colors.textLo
+                    },
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
                     fontFamily = GeistFamily,
@@ -163,7 +184,7 @@ private fun CompactThemeSelector(
 /**
  * Rider-focused ignition / starter button.
  * Styled after motorcycle cockpit controls and digital dash start triggers:
- * - High-energy ignition gradient with crisp top highlight rim
+ * - Rich Mountain Dusk cockpit gradient with crisp specular top rim
  * - Motorcycle dial badge with two-wheeler icon
  * - Monospace cockpit typography
  * - Dynamic throttle speed chevrons & diagonal hash marks
@@ -199,6 +220,21 @@ fun RiderGetStartedButton(
         label = "chevron-offset",
     )
 
+    val gradientStops = if (colors.isDark) {
+        listOf(
+            Color(0xFF1A476E),
+            Color(0xFF235B8C),
+            Color(0xFF2C70AA),
+        )
+    } else {
+        listOf(
+            colors.primaryDeep,
+            colors.primary,
+            colors.primaryBright,
+        )
+    }
+    val contentColor = Color.White
+
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -208,21 +244,13 @@ fun RiderGetStartedButton(
                 scaleY = scale
             }
             .clip(RoundedCornerShape(16.dp))
-            .background(
-                Brush.horizontalGradient(
-                    listOf(
-                        colors.primaryDeep,
-                        colors.primary,
-                        colors.primaryBright,
-                    ),
-                ),
-            )
+            .background(Brush.horizontalGradient(gradientStops))
             .border(
                 width = 1.dp,
                 brush = Brush.verticalGradient(
                     listOf(
-                        colors.onPrimary.copy(alpha = 0.4f),
-                        colors.onPrimary.copy(alpha = 0.1f),
+                        contentColor.copy(alpha = if (colors.isDark) 0.3f else 0.4f),
+                        contentColor.copy(alpha = 0.08f),
                         colors.shadow,
                     ),
                 ),
@@ -240,7 +268,7 @@ fun RiderGetStartedButton(
     ) {
         Canvas(modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(16.dp))) {
             val strokeWidth = 1.5.dp.toPx()
-            val streakColor = colors.onPrimary.copy(alpha = 0.1f)
+            val streakColor = contentColor.copy(alpha = 0.1f)
             val width = size.width
             val height = size.height
             for (i in 0..3) {
@@ -263,21 +291,21 @@ fun RiderGetStartedButton(
                 modifier = Modifier
                     .size(40.dp)
                     .clip(CircleShape)
-                    .background(Color.Black.copy(alpha = 0.16f))
-                    .border(1.dp, colors.onPrimary.copy(alpha = 0.22f), CircleShape),
+                    .background(Color.Black.copy(alpha = 0.18f))
+                    .border(1.dp, contentColor.copy(alpha = 0.24f), CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     imageVector = NavBeamIcons.Motor,
                     contentDescription = "Motorcycle Icon",
-                    tint = colors.onPrimary,
+                    tint = contentColor,
                     modifier = Modifier.size(23.dp),
                 )
             }
 
             Text(
                 text = "GET STARTED",
-                color = colors.onPrimary,
+                color = contentColor,
                 fontFamily = GeistMonoFamily,
                 fontWeight = FontWeight.Bold,
                 fontSize = 16.5.sp,
@@ -296,13 +324,13 @@ fun RiderGetStartedButton(
                 Icon(
                     imageVector = NavBeamIcons.ChevronRight,
                     contentDescription = null,
-                    tint = colors.onPrimary.copy(alpha = 0.45f),
+                    tint = contentColor.copy(alpha = 0.45f),
                     modifier = Modifier.size(19.dp),
                 )
                 Icon(
                     imageVector = NavBeamIcons.ChevronRight,
                     contentDescription = null,
-                    tint = colors.onPrimary.copy(alpha = 0.95f),
+                    tint = contentColor.copy(alpha = 0.95f),
                     modifier = Modifier.size(19.dp),
                 )
             }
