@@ -1,0 +1,34 @@
+name: Hardware Profile / Compatibility
+description: Share test results or request support for a motorcycle TFT display profile
+title: "[Profile]: "
+labels: ["hardware-profile"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Clean-room notice:** Only share user-authored profile details. Do **not** upload copyrighted manufacturer firmware or proprietary keys.
+  - type: input
+    id: bike_dash
+    attributes:
+      label: Bike / Display Model
+      placeholder: "e.g., Model / Display resolution / Firmware"
+    validations:
+      required: true
+  - type: dropdown
+    id: status
+    attributes:
+      label: Connection Status
+      options:
+        - Working (video + controls)
+        - Partial (video only / controls issue)
+        - Handshake / discovery failing
+        - Request / untested
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: Protocol / Profile Notes
+      description: Describe display size, Wi-Fi behavior, maneuver glyphs, or attach a clean-room `.json` profile.
+    validations:
+      required: true
