@@ -3,8 +3,10 @@ package io.github.saltmango.navbeam.dash.profile
 import io.github.saltmango.navbeam.util.AppDispatchers
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
+import java.io.BufferedInputStream
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
+import java.io.EOFException
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
@@ -18,10 +20,12 @@ import java.net.URL
 import java.net.UnknownHostException
 import java.nio.channels.SocketChannel
 import javax.net.ssl.HandshakeCompletedListener
+import javax.net.ssl.HostnameVerifier
 import javax.net.ssl.HttpsURLConnection
 import javax.net.ssl.SNIHostName
 import javax.net.ssl.SSLException
 import javax.net.ssl.SSLParameters
+import javax.net.ssl.SSLPeerUnverifiedException
 import javax.net.ssl.SSLSession
 import javax.net.ssl.SSLSocket
 import javax.net.ssl.SSLSocketFactory
@@ -62,49 +66,270 @@ fun interface HttpUrlFetcher {
 }
 
 object DefaultHttpUrlFetcher : HttpUrlFetcher {
+    private const val MAX_HEADER_BYTES = 16 * 1024
+    private const val MAX_HEADER_LINES = 100
+    private const val MAX_CHUNK_LINE_CHARS = 128
+
     override fun fetch(
         url: URL,
         pinnedAddress: InetAddress,
         connectTimeoutMs: Int,
         readTimeoutMs: Int,
+    ): HttpFetchResponse = fetchWithFactory(
+        url = url,
+        pinnedAddress = pinnedAddress,
+        connectTimeoutMs = connectTimeoutMs,
+        readTimeoutMs = readTimeoutMs,
+        delegateSocketFactory = HttpsURLConnection.getDefaultSSLSocketFactory(),
+        hostnameVerifier = HttpsURLConnection.getDefaultHostnameVerifier(),
+    )
+
+    internal fun fetchWithFactory(
+        url: URL,
+        pinnedAddress: InetAddress,
+        connectTimeoutMs: Int,
+        readTimeoutMs: Int,
+        delegateSocketFactory: SSLSocketFactory,
+        hostnameVerifier: HostnameVerifier,
     ): HttpFetchResponse {
-        val conn = (url.openConnection() as? HttpsURLConnection)
-            ?: throw SecurityException("Only HTTPS connections are supported.")
-        val expectedHost = url.host.removePrefix("[").removeSuffix("]")
-        conn.apply {
-            requestMethod = "GET"
-            instanceFollowRedirects = false
-            useCaches = false
-            connectTimeout = connectTimeoutMs
-            readTimeout = readTimeoutMs
-            hostnameVerifier = HttpsURLConnection.getDefaultHostnameVerifier()
-            sslSocketFactory = PinnedAddressSSLSocketFactory(
-                delegate = HttpsURLConnection.getDefaultSSLSocketFactory(),
-                expectedHost = expectedHost,
-                pinnedAddress = pinnedAddress,
-                connectTimeoutMs = connectTimeoutMs,
-            )
-            setRequestProperty("Accept", "application/json, text/plain;q=0.9")
-            setRequestProperty("User-Agent", "NavBeam-App")
+        if (!url.protocol.equals("https", ignoreCase = true)) {
+            throw SecurityException("Only HTTPS connections are supported.")
         }
-        val statusCode = conn.responseCode
-        val contentLength = conn.contentLengthLong
-        val location = conn.getHeaderField("Location")
-        val stream = if (statusCode in 200..299) conn.inputStream else null
-        if (stream == null) {
-            try {
-                conn.errorStream?.close()
-            } catch (_: IOException) {
-                // Error body intentionally ignored to avoid leaking server pages
+        val expectedHost = url.host.removePrefix("[").removeSuffix("]")
+        val port = url.port.takeIf { it != -1 } ?: 443
+        val factory = PinnedAddressSSLSocketFactory(
+            delegate = delegateSocketFactory,
+            expectedHost = expectedHost,
+            pinnedAddress = pinnedAddress,
+            connectTimeoutMs = connectTimeoutMs,
+        )
+        val sslSocket = factory.createSocket(expectedHost, port) as? SSLSocket
+            ?: throw SecurityException("Expected SSLSocket from pinned factory.")
+
+        var handedOff = false
+        try {
+            sslSocket.soTimeout = readTimeoutMs
+            sslSocket.startHandshake()
+            val session = sslSocket.session
+            if (!hostnameVerifier.verify(expectedHost, session)) {
+                throw SSLPeerUnverifiedException("Hostname verification failed for $expectedHost")
+            }
+
+            val targetUri = url.toURI()
+            val rawTarget = buildString {
+                val path = targetUri.rawPath
+                append(if (path.isNullOrEmpty()) "/" else path)
+                if (!targetUri.rawQuery.isNullOrEmpty()) {
+                    append('?').append(targetUri.rawQuery)
+                }
+            }
+            val hostHeader = formatHostHeader(expectedHost, port)
+            val request = buildString {
+                append("GET ").append(rawTarget).append(" HTTP/1.1\r\n")
+                append("Host: ").append(hostHeader).append("\r\n")
+                append("User-Agent: NavBeam-App\r\n")
+                append("Accept: application/json, text/plain;q=0.9\r\n")
+                append("Accept-Encoding: identity\r\n")
+                append("Connection: close\r\n")
+                append("\r\n")
+            }
+            val out = sslSocket.outputStream
+            out.write(request.toByteArray(Charsets.US_ASCII))
+            out.flush()
+
+            val response = parseHttpResponse(
+                input = sslSocket.inputStream,
+                closeAction = { sslSocket.close() },
+            )
+            handedOff = true
+            return response
+        } finally {
+            if (!handedOff) {
+                try {
+                    sslSocket.close()
+                } catch (_: IOException) {
+                    // Best-effort close on setup/handshake failure
+                }
             }
         }
+    }
+
+    internal fun parseHttpResponse(
+        input: InputStream,
+        closeAction: () -> Unit = {},
+    ): HttpFetchResponse {
+        val buffered = if (input is BufferedInputStream) input else BufferedInputStream(input)
+        val headerBlock = readHeaderBlock(buffered)
+        val lines = headerBlock.split("\r\n")
+        if (lines.isEmpty()) {
+            throw IOException("Malformed HTTP response: missing status line.")
+        }
+        val statusParts = lines[0].split(' ', limit = 3)
+        if (statusParts.size < 2 || !statusParts[0].startsWith("HTTP/1.", ignoreCase = true)) {
+            throw IOException("Unsupported HTTP status line.")
+        }
+        val statusCode = statusParts[1].toIntOrNull()
+            ?: throw IOException("Invalid HTTP status code.")
+
+        var contentLength = -1L
+        var location: String? = null
+        var isChunked = false
+        for (i in 1 until lines.size) {
+            val line = lines[i]
+            if (line.isEmpty()) continue
+            val colon = line.indexOf(':')
+            if (colon <= 0) continue
+            val name = line.substring(0, colon).trim().lowercase()
+            val value = line.substring(colon + 1).trim()
+            when (name) {
+                "location" -> if (location == null) location = value
+                "content-length" -> contentLength = value.toLongOrNull() ?: -1L
+                "transfer-encoding" -> if (value.contains("chunked", ignoreCase = true)) isChunked = true
+            }
+        }
+
+        val bodyStream: InputStream? = if (statusCode in 200..299) {
+            when {
+                isChunked -> ChunkedBodyInputStream(buffered)
+                contentLength >= 0L -> BoundedLengthInputStream(buffered, contentLength)
+                else -> buffered
+            }
+        } else {
+            try {
+                closeAction()
+            } catch (_: IOException) {
+                // Non-2xx response closes socket immediately
+            }
+            null
+        }
+
         return HttpFetchResponse(
             statusCode = statusCode,
             contentLength = contentLength,
             locationHeader = location,
-            bodyStream = stream,
-            closeAction = { conn.disconnect() },
+            bodyStream = bodyStream,
+            closeAction = closeAction,
         )
+    }
+
+    private fun readHeaderBlock(input: InputStream): String {
+        val out = ByteArrayOutputStream()
+        var matched = 0
+        var lineCount = 0
+        while (true) {
+            val b = input.read()
+            if (b == -1) {
+                throw EOFException("Unexpected end of stream while reading HTTP headers.")
+            }
+            if (out.size() >= MAX_HEADER_BYTES) {
+                throw SecurityException("HTTP response headers exceed maximum allowed size.")
+            }
+            out.write(b)
+            when (matched) {
+                0 -> if (b == '\r'.code) matched = 1
+                1 -> matched = if (b == '\n'.code) { lineCount++; 2 } else if (b == '\r'.code) 1 else 0
+                2 -> matched = if (b == '\r'.code) 3 else 0
+                3 -> matched = if (b == '\n'.code) { lineCount++; 4 } else if (b == '\r'.code) 1 else 0
+            }
+            if (lineCount > MAX_HEADER_LINES) {
+                throw SecurityException("HTTP response contains too many header lines.")
+            }
+            if (matched == 4) break
+        }
+        return out.toByteArray().toString(Charsets.ISO_8859_1).trimEnd('\r', '\n')
+    }
+
+    private fun formatHostHeader(host: String, port: Int): String {
+        val formattedHost = if (host.contains(':') && !host.startsWith("[")) "[$host]" else host
+        return if (port == 443) formattedHost else "$formattedHost:$port"
+    }
+
+    private class BoundedLengthInputStream(
+        private val delegate: InputStream,
+        private var remaining: Long,
+    ) : InputStream() {
+        override fun read(): Int {
+            if (remaining <= 0L) return -1
+            val b = delegate.read()
+            if (b != -1) remaining--
+            return b
+        }
+
+        override fun read(b: ByteArray, off: Int, len: Int): Int {
+            if (remaining <= 0L) return -1
+            val toRead = minOf(len.toLong(), remaining).toInt()
+            val n = delegate.read(b, off, toRead)
+            if (n > 0) remaining -= n
+            return n
+        }
+    }
+
+    private class ChunkedBodyInputStream(
+        private val delegate: InputStream,
+    ) : InputStream() {
+        private var remainingInChunk = 0
+        private var eof = false
+
+        override fun read(): Int {
+            val single = ByteArray(1)
+            val n = read(single, 0, 1)
+            return if (n <= 0) -1 else (single[0].toInt() and 0xFF)
+        }
+
+        override fun read(b: ByteArray, off: Int, len: Int): Int {
+            if (eof) return -1
+            if (len == 0) return 0
+            while (remainingInChunk == 0) {
+                val sizeLine = readCrLfLine()
+                    ?: throw EOFException("Unexpected EOF in chunked HTTP stream.")
+                val hexPart = sizeLine.substringBefore(';').trim()
+                val chunkSize = hexPart.toIntOrNull(16)
+                    ?: throw IOException("Invalid HTTP chunk size header.")
+                if (chunkSize < 0) {
+                    throw IOException("Negative HTTP chunk size.")
+                }
+                if (chunkSize == 0) {
+                    eof = true
+                    return -1
+                }
+                remainingInChunk = chunkSize
+            }
+            val toRead = minOf(len, remainingInChunk)
+            val n = delegate.read(b, off, toRead)
+            if (n == -1) {
+                throw EOFException("Unexpected EOF inside HTTP chunk.")
+            }
+            remainingInChunk -= n
+            if (remainingInChunk == 0) {
+                consumeCrLf()
+            }
+            return n
+        }
+
+        private fun readCrLfLine(): String? {
+            val sb = StringBuilder()
+            while (true) {
+                val b = delegate.read()
+                if (b == -1) return if (sb.isEmpty()) null else throw EOFException("Truncated chunk line.")
+                if (b == '\r'.code) {
+                    val next = delegate.read()
+                    if (next != '\n'.code) throw IOException("Invalid CRLF in chunked encoding.")
+                    return sb.toString()
+                }
+                if (sb.length >= MAX_CHUNK_LINE_CHARS) {
+                    throw SecurityException("HTTP chunk header line too long.")
+                }
+                sb.append(b.toChar())
+            }
+        }
+
+        private fun consumeCrLf() {
+            val cr = delegate.read()
+            val lf = delegate.read()
+            if (cr != '\r'.code || lf != '\n'.code) {
+                throw IOException("Missing CRLF after HTTP chunk payload.")
+            }
+        }
     }
 }
 
@@ -604,13 +829,19 @@ class ProfileUrlImporter(
         if (bytes.size == 4) {
             val b0 = bytes[0].toInt() and 0xFF
             val b1 = bytes[1].toInt() and 0xFF
+            val b2 = bytes[2].toInt() and 0xFF
             return when {
                 b0 == 0 -> true                           // 0.0.0.0/8 unspecified
                 b0 == 10 -> true                          // 10.0.0.0/8 private
                 b0 == 127 -> true                         // 127.0.0.0/8 loopback
                 b0 == 169 && b1 == 254 -> true            // 169.254.0.0/16 link-local
                 b0 == 172 && b1 in 16..31 -> true         // 172.16.0.0/12 private
+                b0 == 192 && b1 == 0 && b2 == 0 -> true   // 192.0.0.0/24 IETF protocol assignments
+                b0 == 192 && b1 == 0 && b2 == 2 -> true   // 192.0.2.0/24 TEST-NET-1
                 b0 == 192 && b1 == 168 -> true            // 192.168.0.0/16 private
+                b0 == 198 && b1 in 18..19 -> true         // 198.18.0.0/15 benchmarking
+                b0 == 198 && b1 == 51 && b2 == 100 -> true // 198.51.100.0/24 TEST-NET-2
+                b0 == 203 && b1 == 0 && b2 == 113 -> true // 203.0.113.0/24 TEST-NET-3
                 b0 == 100 && (b1 and 0xC0) == 64 -> true  // 100.64.0.0/10 CGNAT
                 b0 in 224..239 -> true                    // 224.0.0.0/4 multicast
                 b0 >= 240 -> true                         // 240.0.0.0/4 reserved & broadcast
@@ -620,6 +851,8 @@ class ProfileUrlImporter(
         if (bytes.size == 16) {
             val b0 = bytes[0].toInt() and 0xFF
             val b1 = bytes[1].toInt() and 0xFF
+            val b2 = bytes[2].toInt() and 0xFF
+            val b3 = bytes[3].toInt() and 0xFF
             val first15Zero = (0 until 15).all { bytes[it].toInt() == 0 }
             if (first15Zero && (bytes[15].toInt() == 0 || bytes[15].toInt() == 1)) {
                 return true // :: and ::1
@@ -630,6 +863,20 @@ class ProfileUrlImporter(
             if (isV4Mapped || isV4Compat) {
                 return isDisallowedIpBytes(bytes.copyOfRange(12, 16))
             }
+            // NAT64: 64:ff9b::/96 and 64:ff9b:1::/48
+            if (b0 == 0x00 && b1 == 0x64 && b2 == 0xFF && b3 == 0x9B) {
+                val bytes4To11Zero = (4 until 12).all { bytes[it].toInt() == 0 }
+                val isLocalNat64 = (bytes[4].toInt() and 0xFF) == 0x00 && (bytes[5].toInt() and 0xFF) == 0x01
+                if (bytes4To11Zero || isLocalNat64) return true
+            }
+            // Teredo: 2001:0000::/32
+            if (b0 == 0x20 && b1 == 0x01 && b2 == 0x00 && b3 == 0x00) return true
+            // 6to4: 2002::/16
+            if (b0 == 0x20 && b1 == 0x02) return true
+            // Documentation: 2001:0db8::/32
+            if (b0 == 0x20 && b1 == 0x01 && b2 == 0x0D && b3 == 0xB8) return true
+            // Discard-only: 0100::/64
+            if (b0 == 0x01 && b1 == 0x00 && (2 until 8).all { bytes[it].toInt() == 0 }) return true
             if ((b0 and 0xFE) == 0xFC) return true                // fc00::/7 ULA
             if (b0 == 0xFE && (b1 and 0xC0) == 0x80) return true  // fe80::/10 link-local
             if (b0 == 0xFE && (b1 and 0xC0) == 0xC0) return true  // fec0::/10 site-local

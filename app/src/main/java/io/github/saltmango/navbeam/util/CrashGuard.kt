@@ -39,18 +39,20 @@ object CrashGuard {
         val stamp = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date(now))
 
         val stack = StringWriter().also { error.printStackTrace(PrintWriter(it)) }.toString()
-        val text = buildString {
-            appendLine("=== NavBeam crash ===")
-            appendLine("when=$stamp ($now)")
-            appendLine("thread=${thread.name}")
-            appendLine("exception=${error.javaClass.name}: ${error.message}")
-            appendLine("apk=${BuildId.sha12(context)}")
-            appendLine("app=${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
-            appendLine("device=${Build.MANUFACTURER} ${Build.MODEL}")
-            appendLine("android=${Build.VERSION.RELEASE} (sdk ${Build.VERSION.SDK_INT})")
-            appendLine()
-            append(stack)
-        }
+        val text = io.github.saltmango.navbeam.data.DiagReporter.redact(
+            buildString {
+                appendLine("=== NavBeam crash ===")
+                appendLine("when=$stamp ($now)")
+                appendLine("thread=${thread.name}")
+                appendLine("exception=${error.javaClass.name}: ${error.message}")
+                appendLine("apk=${BuildId.sha12(context)}")
+                appendLine("app=${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
+                appendLine("device=${Build.MANUFACTURER} ${Build.MODEL}")
+                appendLine("android=${Build.VERSION.RELEASE} (sdk ${Build.VERSION.SDK_INT})")
+                appendLine()
+                append(stack)
+            }
+        )
         File(dir, "crash-$stamp.log").writeText(text)
         rotate(dir)
     }

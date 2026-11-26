@@ -14,8 +14,10 @@ import java.net.SocketAddress
 import java.net.URL
 import java.nio.channels.SocketChannel
 import javax.net.ssl.HandshakeCompletedListener
+import javax.net.ssl.HostnameVerifier
 import javax.net.ssl.SNIHostName
 import javax.net.ssl.SSLParameters
+import javax.net.ssl.SSLPeerUnverifiedException
 import javax.net.ssl.SSLSession
 import javax.net.ssl.SSLSocket
 import javax.net.ssl.SSLSocketFactory
@@ -273,6 +275,30 @@ class ProfileUrlImporterTest {
             "fd12:3456:789a::1" to ByteArray(16).apply { this[0] = 0xFD.toByte(); this[15] = 1 },
             "fe80::1" to ByteArray(16).apply { this[0] = 0xFE.toByte(); this[1] = 0x80.toByte(); this[15] = 1 },
             "ff02::1" to ByteArray(16).apply { this[0] = 0xFF.toByte(); this[15] = 1 },
+            "192.0.0.1" to byteArrayOf(192.toByte(), 0, 0, 1),
+            "192.0.2.1" to byteArrayOf(192.toByte(), 0, 2, 1),
+            "198.18.0.1" to byteArrayOf(198.toByte(), 18, 0, 1),
+            "198.51.100.1" to byteArrayOf(198.toByte(), 51, 100, 1),
+            "203.0.113.1" to byteArrayOf(203.toByte(), 0, 113, 1),
+            "64:ff9b::10.0.0.1" to ByteArray(16).apply {
+                this[1] = 0x64; this[2] = 0xFF.toByte(); this[3] = 0x9B.toByte()
+                this[12] = 10; this[15] = 1
+            },
+            "64:ff9b:1::1" to ByteArray(16).apply {
+                this[1] = 0x64; this[2] = 0xFF.toByte(); this[3] = 0x9B.toByte()
+                this[5] = 1; this[15] = 1
+            },
+            "2001:0000::1" to ByteArray(16).apply {
+                this[0] = 0x20; this[1] = 0x01; this[15] = 1
+            },
+            "2002:c0a8:0101::1" to ByteArray(16).apply {
+                this[0] = 0x20; this[1] = 0x02; this[2] = 0xC0.toByte(); this[3] = 0xA8.toByte()
+                this[15] = 1
+            },
+            "2001:db8::1" to ByteArray(16).apply {
+                this[0] = 0x20; this[1] = 0x01; this[2] = 0x0D; this[3] = 0xB8.toByte(); this[15] = 1
+            },
+            "100::1" to ByteArray(16).apply { this[0] = 0x01; this[15] = 1 },
         )
 
         for ((label, rawBytes) in blockedIps) {
@@ -357,6 +383,135 @@ class ProfileUrlImporterTest {
         }
         assertTrue(thrown.isFailure)
         assertTrue(thrown.exceptionOrNull() is SecurityException)
+    }
+
+    @Test
+    fun defaultHttpUrlFetcherParsesContentLengthChunkedAndRedirectResponses() {
+        val rawFixed = (
+            "HTTP/1.1 200 OK\r\n" +
+                "Content-Length: 5\r\n" +
+                "Content-Type: application/json\r\n\r\n" +
+                "helloEXTRA"
+            ).toByteArray(Charsets.ISO_8859_1)
+        DefaultHttpUrlFetcher.parseHttpResponse(ByteArrayInputStream(rawFixed)).use { resp ->
+            assertEquals(200, resp.statusCode)
+            assertEquals(5L, resp.contentLength)
+            assertEquals("hello", resp.bodyStream!!.readBytes().toString(Charsets.UTF_8))
+        }
+
+        val rawChunked = (
+            "HTTP/1.1 200 OK\r\n" +
+                "Transfer-Encoding: chunked\r\n\r\n" +
+                "5\r\nhello\r\n" +
+                "7;ext=1\r\n world!\r\n" +
+                "0\r\n\r\n"
+            ).toByteArray(Charsets.ISO_8859_1)
+        DefaultHttpUrlFetcher.parseHttpResponse(ByteArrayInputStream(rawChunked)).use { resp ->
+            assertEquals(200, resp.statusCode)
+            assertEquals("hello world!", resp.bodyStream!!.readBytes().toString(Charsets.UTF_8))
+        }
+
+        var closed = false
+        val rawRedirect = (
+            "HTTP/1.1 302 Found\r\n" +
+                "Location: https://cdn.example.com/next.navbeam\r\n\r\n"
+            ).toByteArray(Charsets.ISO_8859_1)
+        val redirectResp = DefaultHttpUrlFetcher.parseHttpResponse(
+            ByteArrayInputStream(rawRedirect),
+            closeAction = { closed = true },
+        )
+        assertEquals(302, redirectResp.statusCode)
+        assertEquals("https://cdn.example.com/next.navbeam", redirectResp.locationHeader)
+        assertNull(redirectResp.bodyStream)
+        assertTrue("Non-2xx response must close connection immediately", closed)
+    }
+
+    @Test
+    fun defaultHttpUrlFetcherConnectsDirectlyViaPinnedSocketAndVerifiesHostname() {
+        val loopback = InetAddress.getLoopbackAddress()
+        ServerSocket(0, 1, loopback).use { server ->
+            val capturedRequest = StringBuilder()
+            val serverThread = Thread {
+                server.accept().use { client ->
+                    val reader = client.getInputStream()
+                    val buf = ByteArray(1024)
+                    val read = reader.read(buf)
+                    if (read > 0) {
+                        capturedRequest.append(String(buf, 0, read, Charsets.US_ASCII))
+                    }
+                    val body = "{\"ok\":true}".toByteArray(Charsets.UTF_8)
+                    val header = (
+                        "HTTP/1.1 200 OK\r\n" +
+                            "Content-Length: ${body.size}\r\n" +
+                            "Connection: close\r\n\r\n"
+                        ).toByteArray(Charsets.US_ASCII)
+                    client.getOutputStream().write(header)
+                    client.getOutputStream().write(body)
+                    client.getOutputStream().flush()
+                }
+            }.apply { start() }
+
+            val fakeDelegateFactory = object : SSLSocketFactory() {
+                override fun getDefaultCipherSuites(): Array<String> = emptyArray()
+                override fun getSupportedCipherSuites(): Array<String> = emptyArray()
+                override fun createSocket(s: Socket, host: String, port: Int, autoClose: Boolean): Socket =
+                    FakeSSLSocket(s)
+                override fun createSocket(host: String, port: Int): Socket = error("Unused")
+                override fun createSocket(host: String, port: Int, localHost: InetAddress, localPort: Int): Socket = error("Unused")
+                override fun createSocket(host: InetAddress, port: Int): Socket = error("Unused")
+                override fun createSocket(address: InetAddress, port: Int, localAddress: InetAddress, localPort: Int): Socket = error("Unused")
+            }
+
+            DefaultHttpUrlFetcher.fetchWithFactory(
+                url = URL("https://raw.githubusercontent.com:${server.localPort}/SaltMango/NavBeam/main/DashProfile.json"),
+                pinnedAddress = loopback,
+                connectTimeoutMs = 1000,
+                readTimeoutMs = 1000,
+                delegateSocketFactory = fakeDelegateFactory,
+                hostnameVerifier = HostnameVerifier { host, _ -> host == "raw.githubusercontent.com" },
+            ).use { resp ->
+                assertEquals(200, resp.statusCode)
+                assertEquals("{\"ok\":true}", resp.bodyStream!!.readBytes().toString(Charsets.UTF_8))
+            }
+            serverThread.join(2000)
+
+            val reqText = capturedRequest.toString()
+            assertTrue(reqText.startsWith("GET /SaltMango/NavBeam/main/DashProfile.json HTTP/1.1\r\n"))
+            assertTrue(reqText.contains("Host: raw.githubusercontent.com:${server.localPort}\r\n"))
+            assertTrue(reqText.contains("Accept-Encoding: identity\r\n"))
+        }
+
+        // Hostname verification failure must close socket and throw SSLPeerUnverifiedException
+        ServerSocket(0, 1, loopback).use { server ->
+            val acceptThread = Thread {
+                runCatching { server.accept().close() }
+            }.apply { start() }
+
+            val fakeDelegateFactory = object : SSLSocketFactory() {
+                override fun getDefaultCipherSuites(): Array<String> = emptyArray()
+                override fun getSupportedCipherSuites(): Array<String> = emptyArray()
+                override fun createSocket(s: Socket, host: String, port: Int, autoClose: Boolean): Socket =
+                    FakeSSLSocket(s)
+                override fun createSocket(host: String, port: Int): Socket = error("Unused")
+                override fun createSocket(host: String, port: Int, localHost: InetAddress, localPort: Int): Socket = error("Unused")
+                override fun createSocket(host: InetAddress, port: Int): Socket = error("Unused")
+                override fun createSocket(address: InetAddress, port: Int, localAddress: InetAddress, localPort: Int): Socket = error("Unused")
+            }
+
+            val rejected = runCatching {
+                DefaultHttpUrlFetcher.fetchWithFactory(
+                    url = URL("https://raw.githubusercontent.com:${server.localPort}/SaltMango/NavBeam/main/DashProfile.json"),
+                    pinnedAddress = loopback,
+                    connectTimeoutMs = 1000,
+                    readTimeoutMs = 1000,
+                    delegateSocketFactory = fakeDelegateFactory,
+                    hostnameVerifier = HostnameVerifier { _, _ -> false },
+                )
+            }
+            acceptThread.join(2000)
+            assertTrue(rejected.isFailure)
+            assertTrue(rejected.exceptionOrNull() is SSLPeerUnverifiedException)
+        }
     }
 
     @Test
@@ -571,7 +726,7 @@ class ProfileUrlImporterTest {
         override fun getSupportedProtocols(): Array<String> = emptyArray()
         override fun getEnabledProtocols(): Array<String> = emptyArray()
         override fun setEnabledProtocols(protocols: Array<out String>?) {}
-        override fun getSession(): SSLSession = error("Unused")
+        override fun getSession(): SSLSession = FakeSslSession()
         override fun addHandshakeCompletedListener(listener: HandshakeCompletedListener?) {}
         override fun removeHandshakeCompletedListener(listener: HandshakeCompletedListener?) {}
         override fun startHandshake() {}
@@ -587,5 +742,30 @@ class ProfileUrlImporterTest {
         override fun setSSLParameters(params: SSLParameters?) {
             if (params != null) this.params = params
         }
+    }
+
+    private class FakeSslSession : SSLSession {
+        override fun getId(): ByteArray = ByteArray(0)
+        override fun getSessionContext() = null
+        override fun getCreationTime(): Long = 0L
+        override fun getLastAccessedTime(): Long = 0L
+        override fun invalidate() {}
+        override fun isValid(): Boolean = true
+        override fun putValue(name: String?, value: Any?) {}
+        override fun getValue(name: String?): Any? = null
+        override fun removeValue(name: String?) {}
+        override fun getValueNames(): Array<String> = emptyArray()
+        override fun getPeerCertificates() = emptyArray<java.security.cert.Certificate>()
+        @Suppress("DEPRECATION")
+        override fun getPeerCertificateChain() = emptyArray<javax.security.cert.X509Certificate>()
+        override fun getLocalCertificates() = null
+        override fun getPeerPrincipal() = null
+        override fun getLocalPrincipal() = null
+        override fun getCipherSuite(): String = "TLS_AES_128_GCM_SHA256"
+        override fun getProtocol(): String = "TLSv1.3"
+        override fun getPeerHost(): String = "raw.githubusercontent.com"
+        override fun getPeerPort(): Int = 443
+        override fun getPacketBufferSize(): Int = 16384
+        override fun getApplicationBufferSize(): Int = 16384
     }
 }

@@ -46,6 +46,15 @@ class DashSocket(
         private const val BUF              = 65535
         private const val RECV_TIMEOUT_MS  = 500
         private const val TAG              = "DashSocket"
+
+        /**
+         * Accepts incoming control packets only from the configured dash IP (rejecting
+         * loopback, unspecified, and arbitrary third-party hosts on the subnet).
+         */
+        internal fun isTrustedControlSender(sender: InetAddress?, expectedDash: InetAddress): Boolean {
+            if (sender == null || sender.isLoopbackAddress || sender.isAnyLocalAddress) return false
+            return sender.address.contentEquals(expectedDash.address)
+        }
     }
 
     val dashIp: String get() = networkConfig.gatewayIp
@@ -161,7 +170,7 @@ class DashSocket(
     }
 
     /**
-     * Blocks up to [rxSocket.soTimeout]; returns null on timeout.
+     * Blocks up to [rxSocket.soTimeout]; returns null on timeout or unexpected sender IP.
      * Throws on a genuine socket error — the caller's receive loop catches
      * it and ends the session.
      */
@@ -170,6 +179,10 @@ class DashSocket(
         rxBuf.length = BUF
         return@withContext try {
             rxSocket.receive(rxBuf)
+            if (!isTrustedControlSender(rxBuf.address, dashAddr)) {
+                Dbg.w(TAG) { "Ignored control packet from untrusted source ${rxBuf.address?.hostAddress}:${rxBuf.port}" }
+                return@withContext null
+            }
             val bytes = rxBuf.data.copyOf(rxBuf.length)
             Dbg.i(TAG) { "RX ←${rxBuf.address?.hostAddress}:${rxBuf.port}  ${bytes.size}B  ${bytes.hex()}" }
             bytes

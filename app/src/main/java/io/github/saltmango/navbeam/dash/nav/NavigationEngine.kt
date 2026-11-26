@@ -274,7 +274,10 @@ class DefaultNavigationEngine(
         val nextMan = upcoming?.firstOrNull()
         val secondaryMan = upcoming?.drop(1)?.firstOrNull()
 
-        android.util.Log.d("DashSession", "Engine setRoute: nextMan=${nextMan?.instruction} (0x%02X), secondaryMan=${secondaryMan?.instruction} (0x%02X)".format(nextMan?.dashCode ?: 0x09, secondaryMan?.dashCode ?: 0x40))
+        io.github.saltmango.navbeam.util.Dbg.d("DashSession") {
+            "Engine setRoute: nextMan=${nextMan?.instruction} (0x%02X), secondaryMan=${secondaryMan?.instruction} (0x%02X)"
+                .format(nextMan?.dashCode ?: 0x09, secondaryMan?.dashCode ?: 0x40)
+        }
 
         state = state.copy(
             progress = RouteProgress(

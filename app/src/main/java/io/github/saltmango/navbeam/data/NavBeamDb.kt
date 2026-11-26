@@ -104,61 +104,83 @@ class NavBeamDb private constructor(context: Context) :
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        if (oldVersion < 2) {
-            db.execSQL(
-                """CREATE TABLE IF NOT EXISTS saved_location(
-                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                     name TEXT NOT NULL, lat REAL NOT NULL, lng REAL NOT NULL,
-                     note TEXT NOT NULL DEFAULT '', created_ms INTEGER NOT NULL)"""
-            )
-        }
-        if (oldVersion < 3) {
-            // Add sid columns + backfill existing rows with random UUID-like ids.
-            for (t in listOf("saved_location")) {
-                runCatching { db.execSQL("ALTER TABLE $t ADD COLUMN sid TEXT NOT NULL DEFAULT ''") }
-                db.execSQL(
-                    "UPDATE $t SET sid = lower(hex(randomblob(16))) WHERE sid IS NULL OR sid = ''"
+        db.inTransaction {
+            if (oldVersion < 2) {
+                execSQL(
+                    """CREATE TABLE IF NOT EXISTS saved_location(
+                         id INTEGER PRIMARY KEY AUTOINCREMENT,
+                         name TEXT NOT NULL, lat REAL NOT NULL, lng REAL NOT NULL,
+                         note TEXT NOT NULL DEFAULT '', created_ms INTEGER NOT NULL)"""
                 )
             }
+            if (oldVersion < 3) {
+                if (!hasColumn(this, "saved_location", "sid")) {
+                    execSQL("ALTER TABLE saved_location ADD COLUMN sid TEXT NOT NULL DEFAULT ''")
+                }
+                execSQL(
+                    "UPDATE saved_location SET sid = lower(hex(randomblob(16))) WHERE sid IS NULL OR sid = ''"
+                )
+            }
+            if (oldVersion < 4) execSQL(CREATE_RIDE)
+
+            if (oldVersion < 9) {
+                val cols = listOf(
+                    "start_location" to "TEXT",
+                    "destination_name" to "TEXT",
+                    "stops" to "TEXT",
+                    "start_battery" to "INTEGER DEFAULT -1",
+                    "end_battery" to "INTEGER DEFAULT -1",
+                    "battery_used" to "INTEGER DEFAULT 0",
+                    "battery_used_per_min" to "REAL DEFAULT 0.0",
+                    "start_battery_temp" to "REAL DEFAULT 0.0",
+                    "end_battery_temp" to "REAL DEFAULT 0.0",
+                    "thermal_throttled" to "INTEGER DEFAULT 0",
+                    "reconnect_count" to "INTEGER DEFAULT 0",
+                    "gps_accuracy_avg" to "REAL DEFAULT 0.0",
+                    "gps_fix_count" to "INTEGER DEFAULT 0",
+                    "gps_interval_avg_ms" to "INTEGER DEFAULT 0",
+                    "gps_drops_count" to "INTEGER DEFAULT 0",
+                    "recalc_count" to "INTEGER DEFAULT 0",
+                    "avg_fps" to "REAL DEFAULT 0.0",
+                    "skipped_frames" to "INTEGER DEFAULT 0",
+                    "total_bytes_sent" to "INTEGER DEFAULT 0",
+                    "avg_bitrate_kbps" to "REAL DEFAULT 0.0",
+                    "avg_encode_time_ms" to "REAL DEFAULT 0.0",
+                    "avg_network_latency_ms" to "REAL DEFAULT 0.0",
+                    "encoder_mode" to "TEXT DEFAULT ''",
+                    "nav_mode" to "TEXT DEFAULT ''",
+                    "stream_quality" to "TEXT DEFAULT ''",
+                    "device_model" to "TEXT DEFAULT ''",
+                    "android_version" to "TEXT DEFAULT ''",
+                )
+                for ((colName, colDef) in cols) {
+                    if (!hasColumn(this, "ride", colName)) {
+                        execSQL("ALTER TABLE ride ADD COLUMN $colName $colDef")
+                    }
+                }
+            }
+            if (oldVersion < 10) execSQL(CREATE_SAVED_ROUTE)
         }
-        if (oldVersion < 4) db.execSQL(CREATE_RIDE)
+    }
 
+    private inline fun SQLiteDatabase.inTransaction(block: SQLiteDatabase.() -> Unit) {
+        beginTransaction()
+        try {
+            block()
+            setTransactionSuccessful()
+        } finally {
+            endTransaction()
+        }
+    }
 
-        if (oldVersion < 9) {
-            val cols = listOf(
-                "start_location TEXT",
-                "destination_name TEXT",
-                "stops TEXT",
-                "start_battery INTEGER DEFAULT -1",
-                "end_battery INTEGER DEFAULT -1",
-                "battery_used INTEGER DEFAULT 0",
-                "battery_used_per_min REAL DEFAULT 0.0",
-                "start_battery_temp REAL DEFAULT 0.0",
-                "end_battery_temp REAL DEFAULT 0.0",
-                "thermal_throttled INTEGER DEFAULT 0",
-                "reconnect_count INTEGER DEFAULT 0",
-                "gps_accuracy_avg REAL DEFAULT 0.0",
-                "gps_fix_count INTEGER DEFAULT 0",
-                "gps_interval_avg_ms INTEGER DEFAULT 0",
-                "gps_drops_count INTEGER DEFAULT 0",
-                "recalc_count INTEGER DEFAULT 0",
-                "avg_fps REAL DEFAULT 0.0",
-                "skipped_frames INTEGER DEFAULT 0",
-                "total_bytes_sent INTEGER DEFAULT 0",
-                "avg_bitrate_kbps REAL DEFAULT 0.0",
-                "avg_encode_time_ms REAL DEFAULT 0.0",
-                "avg_network_latency_ms REAL DEFAULT 0.0",
-                "encoder_mode TEXT DEFAULT ''",
-                "nav_mode TEXT DEFAULT ''",
-                "stream_quality TEXT DEFAULT ''",
-                "device_model TEXT DEFAULT ''",
-                "android_version TEXT DEFAULT ''"
-            )
-            for (col in cols) {
-                runCatching { db.execSQL("ALTER TABLE ride ADD COLUMN $col") }
+    private fun hasColumn(db: SQLiteDatabase, table: String, column: String): Boolean {
+        db.rawQuery("PRAGMA table_info($table)", null).use { c ->
+            val nameIdx = c.getColumnIndex("name")
+            while (c.moveToNext()) {
+                if (nameIdx >= 0 && c.getString(nameIdx) == column) return true
             }
         }
-        if (oldVersion < 10) db.execSQL(CREATE_SAVED_ROUTE)
+        return false
     }
 
 
@@ -184,8 +206,11 @@ class NavBeamDb private constructor(context: Context) :
             put("sid", s.sid); put("name", s.name); put("lat", s.lat); put("lng", s.lng)
             put("note", s.note); put("created_ms", s.createdMs)
         }
-        if (writableDatabase.update("saved_location", cv, "sid=?", arrayOf(s.sid)) == 0)
-            writableDatabase.insert("saved_location", null, cv)
+        writableDatabase.inTransaction {
+            if (update("saved_location", cv, "sid=?", arrayOf(s.sid)) == 0) {
+                insert("saved_location", null, cv)
+            }
+        }
     }
 
     fun deleteSavedBySid(sid: String) =
@@ -276,8 +301,11 @@ class NavBeamDb private constructor(context: Context) :
             put("device_model", r.deviceModel)
             put("android_version", r.androidVersion)
         }
-        if (writableDatabase.update("ride", cv, "sid=?", arrayOf(r.sid)) == 0)
-            writableDatabase.insert("ride", null, cv)
+        writableDatabase.inTransaction {
+            if (update("ride", cv, "sid=?", arrayOf(r.sid)) == 0) {
+                insert("ride", null, cv)
+            }
+        }
     }
 
     fun deleteRideBySid(sid: String) =
@@ -332,8 +360,10 @@ class NavBeamDb private constructor(context: Context) :
             put("is_downloaded", if (r.isDownloaded) 1 else 0)
             put("created_ms", r.createdMs)
         }
-        if (writableDatabase.update("saved_route", cv, "sid=?", arrayOf(r.sid)) == 0) {
-            writableDatabase.insert("saved_route", null, cv)
+        writableDatabase.inTransaction {
+            if (update("saved_route", cv, "sid=?", arrayOf(r.sid)) == 0) {
+                insert("saved_route", null, cv)
+            }
         }
     }
 

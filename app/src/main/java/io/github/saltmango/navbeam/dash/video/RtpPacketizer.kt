@@ -1,6 +1,6 @@
 package io.github.saltmango.navbeam.dash.video
 
-import java.util.Random
+import java.security.SecureRandom
 
 /**
  * RFC 6184 H.264 RTP packetizer driven by the active display profile.
@@ -20,7 +20,7 @@ class RtpPacketizer(
     private val maxPayload = maxPayload.coerceIn(256, 1460)
     private val pt = payloadType.coerceIn(96, 127)
 
-    private val rng    = Random()
+    private val rng    = SecureRandom()
     private var seq    = rng.nextInt(0xFFFF)
     private val ssrc   = rng.nextInt()
     private val tsBase = rng.nextInt().toLong() and 0xFFFFFFFFL

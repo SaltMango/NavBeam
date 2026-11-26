@@ -32,6 +32,23 @@ class DashAuth(
     private val ssid: String,
     private val cmdConfig: CommandProtocolConfig = DashProfileManager.activeProfile.value.commands,
 ) {
+    companion object {
+        internal const val MIN_RSA_BITS = 1024
+        internal const val MAX_RSA_BITS = 4096
+
+        /**
+         * Validates display-supplied RSA public key parameters against weak or malformed inputs
+         * (sub-1024-bit moduli, oversized DoS moduli, even moduli, or invalid/trivial exponents).
+         */
+        internal fun isValidRsaParameters(modulus: BigInteger, exponent: BigInteger): Boolean {
+            if (modulus.signum() <= 0 || !modulus.testBit(0)) return false
+            if (modulus.bitLength() !in MIN_RSA_BITS..MAX_RSA_BITS) return false
+            if (exponent < BigInteger.valueOf(3L) || !exponent.testBit(0)) return false
+            if (exponent >= modulus) return false
+            return true
+        }
+    }
+
     private var modulus: BigInteger? = null
     private var exponent: BigInteger? = null
     private var keySent = false
@@ -53,6 +70,14 @@ class DashAuth(
 
         val m = modulus; val e = exponent
         if (!keySent && m != null && e != null) {
+            if (!isValidRsaParameters(m, e)) {
+                io.github.saltmango.navbeam.data.RideDiagnostics.log(
+                    "auth",
+                    "Rejected invalid RSA pubkey (bits=${m.bitLength()})"
+                )
+                reset()
+                return AuthEvent.None
+            }
             keySent = true
             return AuthEvent.SendKey(buildKeyPacket(m, e))
         }

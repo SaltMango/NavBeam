@@ -64,6 +64,7 @@ fun MenuScreen(
     var autoConnect by remember { mutableStateOf(SettingsPrefs.getAutoConnect(ctx)) }
     var screenOff by remember { mutableStateOf(SettingsPrefs.getScreenOff(ctx)) }
     var keepAwake by remember { mutableStateOf(SettingsPrefs.getKeepAwake(ctx)) }
+    var joystickCallAnswer by remember { mutableStateOf(SettingsPrefs.getJoystickCallAnswerEnabled(ctx)) }
     var units by remember { mutableStateOf(SettingsPrefs.getUnits(ctx)) }
     var showQualityDialog by remember { mutableStateOf(false) }
     var showNavModeDialog by remember { mutableStateOf(false) }
@@ -318,17 +319,19 @@ fun MenuScreen(
             NavBeamRow(
                 icon = NavBeamIcons.Bt,
                 title = "Answer calls from joystick",
-                sub = if (callAnswerGranted) "Enabled · UP answers, DOWN rejects"
-                else "Tap to allow answering/rejecting calls",
-                trailingContent = {
-                    NavBeamChip(
-                        label = if (callAnswerGranted) "On" else "Enable",
-                        tone = if (callAnswerGranted) ChipTone.Primary else ChipTone.Off,
-                        dot = true,
-                    )
+                sub = when {
+                    joystickCallAnswer && callAnswerGranted -> "Enabled · UP answers, DOWN rejects"
+                    joystickCallAnswer -> "Enabled via dialer notification · grant phone permission for fallback"
+                    else -> "Disabled · enable to answer incoming calls from the dash"
                 },
-                onClick = if (callAnswerGranted) null else {
-                    { callPermLauncher.launch(android.Manifest.permission.ANSWER_PHONE_CALLS) }
+                trailingContent = {
+                    NavBeamToggle(joystickCallAnswer) { enabled ->
+                        joystickCallAnswer = enabled
+                        SettingsPrefs.setJoystickCallAnswerEnabled(ctx, enabled)
+                        if (enabled && !callAnswerGranted) {
+                            callPermLauncher.launch(android.Manifest.permission.ANSWER_PHONE_CALLS)
+                        }
+                    }
                 },
             )
         }

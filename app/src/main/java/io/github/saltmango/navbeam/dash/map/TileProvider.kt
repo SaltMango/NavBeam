@@ -16,7 +16,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.ConcurrentHashMap
@@ -46,6 +48,7 @@ class TileProvider(context: Context, private val scope: CoroutineScope) {
     val prefetchProgress: StateFlow<PrefetchProgress> = _prefetchProgress.asStateFlow()
     companion object {
         private const val TAG = "TileProvider"
+        private const val MAX_TILE_BYTES = 2 * 1024 * 1024
         // Actual Google Maps roadmap tiles (the colours/contrast the rider wants —
         // distinct building fills, clear white roads). This is Google's tile endpoint;
         // it's used here for a PERSONAL, single-user, non-distributed build. The
@@ -283,8 +286,16 @@ class TileProvider(context: Context, private val scope: CoroutineScope) {
                 Log.w(TAG, "Tile $key HTTP ${conn.responseCode}")
                 conn.disconnect(); return null
             }
-            val bytes = conn.inputStream.use { it.readBytes() }
+            if (conn.contentLengthLong > MAX_TILE_BYTES) {
+                Log.w(TAG, "Tile $key oversized (${conn.contentLengthLong}B) — skipping")
+                conn.disconnect(); return null
+            }
+            val bytes = conn.inputStream.use { readBoundedTileBytes(it) }
             conn.disconnect()
+            if (bytes == null) {
+                Log.w(TAG, "Tile $key exceeded ${MAX_TILE_BYTES}B limit — skipping")
+                return null
+            }
             // Only cache a tile that actually DECODES. Writing a throttle/error body or a
             // truncated read to disk would poison the cache: the file would then exist (so
             // prefetch skips it) but never decode, leaving a permanently blank tile offline.
@@ -299,6 +310,20 @@ class TileProvider(context: Context, private val scope: CoroutineScope) {
             Log.w(TAG, "Tile $key fetch failed: ${e.message}")
             null
         }
+    }
+
+    private fun readBoundedTileBytes(stream: InputStream): ByteArray? {
+        val out = ByteArrayOutputStream()
+        val buf = ByteArray(8192)
+        var total = 0
+        while (true) {
+            val n = stream.read(buf)
+            if (n <= 0) break
+            total += n
+            if (total > MAX_TILE_BYTES) return null
+            out.write(buf, 0, n)
+        }
+        return out.toByteArray()
     }
 
     @Suppress("DEPRECATION")

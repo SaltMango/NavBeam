@@ -81,15 +81,21 @@ android {
         debug {
         }
         release {
-            optimization {
-                enable = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "src/main/keepRules/rules.keep",
+            )
+            // Release builds must use the real release keystore (from signing.properties) so
+            // updates share one signature. Never silently fall back to the public debug keystore
+            // unless explicitly requested via -PallowDebugReleaseSigning=true.
+            signingConfig = when {
+                hasReleaseSigning -> signingConfigs.getByName("release")
+                project.findProperty("allowDebugReleaseSigning")?.toString()?.toBoolean() == true ->
+                    signingConfigs.getByName("debug")
+                else -> null
             }
-            // Hobby/open-source distribution: signed by the stable release keystore (from
-            // signing.properties) so every published APK shares one signature and updates
-            // install in place. Falls back to the debug keystore when signing.properties is
-            // absent (contributors building locally) — that build just can't update users.
-            signingConfig = if (hasReleaseSigning) signingConfigs.getByName("release")
-                            else signingConfigs.getByName("debug")
         }
     }
     compileOptions {

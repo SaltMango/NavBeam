@@ -470,9 +470,19 @@ class DashViewModel(app: Application) : AndroidViewModel(app), NavigationModeCon
             val btnNext = inputs["mediaNext"] ?: -1
             val btnPrev = inputs["mediaPrev"] ?: -1
 
+            val allowCallAnswer = io.github.saltmango.navbeam.data.SettingsPrefs
+                .getJoystickCallAnswerEnabled(getApplication())
+
             val label = when {
-                // Ringing: IN answers, DOWN rejects. Active call: DOWN hangs up (fixes "can't end").
-                ringing && code == btnAnswer -> { answerCall(call!!); "Call answered" }
+                // Ringing: IN answers (only when explicitly enabled in Menu), DOWN rejects.
+                ringing && code == btnAnswer -> {
+                    if (allowCallAnswer) {
+                        answerCall(call!!)
+                        "Call answered"
+                    } else {
+                        "Call answer disabled"
+                    }
+                }
                 ringing && code == btnReject -> { endCall(call!!);    "Call rejected" }
                 active  && code == btnReject -> { endCall(call!!);    "Call ended" }
                 // Map/media controls run whenever a call ISN'T ringing (still usable during an active

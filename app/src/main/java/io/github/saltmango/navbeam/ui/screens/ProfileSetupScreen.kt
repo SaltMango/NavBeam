@@ -97,6 +97,7 @@ fun ProfileSetupScreen(
     var urlInput by remember { mutableStateOf("") }
     var urlError by remember { mutableStateOf<String?>(null) }
     var isImportingUrl by remember { mutableStateOf(false) }
+    var showSharePasswordDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(incomingImportState) {
         when (incomingImportState) {
@@ -201,9 +202,15 @@ fun ProfileSetupScreen(
         }
     }
 
-    fun shareActiveProfile() {
+    fun shareActiveProfile(redactPassword: Boolean) {
         if (!activeProfile.isConfigured) return
-        val snapshot = activeProfile
+        val snapshot = if (redactPassword && activeProfile.network.defaultPassword.isNotBlank()) {
+            activeProfile.copy(
+                network = activeProfile.network.copy(defaultPassword = "CHANGE_ME_123")
+            )
+        } else {
+            activeProfile
+        }
         scope.launch {
             val result = withContext(AppDispatchers.networking) {
                 runCatching {
@@ -255,7 +262,17 @@ fun ProfileSetupScreen(
             onBack = onBack,
             trailing = {
                 if (activeProfile.isConfigured) {
-                    IconButton(onClick = { shareActiveProfile() }) {
+                    IconButton(
+                        onClick = {
+                            if (activeProfile.network.defaultPassword.isNotBlank() &&
+                                activeProfile.network.defaultPassword != "CHANGE_ME_123"
+                            ) {
+                                showSharePasswordDialog = true
+                            } else {
+                                shareActiveProfile(redactPassword = false)
+                            }
+                        }
+                    ) {
                         Icon(
                             imageVector = NavBeamIcons.Share,
                             contentDescription = "Share active profile",
@@ -1194,6 +1211,41 @@ fun ProfileSetupScreen(
             dismissButton = {
                 TextButton(onClick = { profileChangePrompt = null }) {
                     Text("Cancel", color = colors.textMid)
+                }
+            }
+        )
+    }
+
+    if (showSharePasswordDialog) {
+        AlertDialog(
+            onDismissRequest = { showSharePasswordDialog = false },
+            containerColor = colors.surf1,
+            title = { Text("Include Wi-Fi Password?", color = colors.textHi) },
+            text = {
+                Text(
+                    "This profile contains a default dash Wi-Fi password. Choose whether to redact it before sharing publicly.",
+                    color = colors.textLo,
+                    fontSize = 13.sp
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showSharePasswordDialog = false
+                        shareActiveProfile(redactPassword = true)
+                    }
+                ) {
+                    Text("Share without Password", color = colors.primary, fontWeight = FontWeight.SemiBold)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showSharePasswordDialog = false
+                        shareActiveProfile(redactPassword = false)
+                    }
+                ) {
+                    Text("Include Password", color = colors.textMid)
                 }
             }
         )

@@ -489,6 +489,9 @@ class DashSession(private val scope: CoroutineScope) {
                 (t.type == cmd.authStatusTag.type && t.sub == cmd.authStatusTag.sub)
         }
 
+        var idrAckSent = false
+        var pAckSent = false
+        var buttonHandled = false
         for (tlv in tlvs) {
             // ── Auth ──
             if (isAuthPacketType(tlv)) {
@@ -510,26 +513,35 @@ class DashSession(private val scope: CoroutineScope) {
                 }
                 continue
             }
-            // ── Per-IDR frame-decoded notify → mandatory IDR frame ACK ──
+            // ── Per-IDR frame-decoded notify → mandatory IDR frame ACK (at most once per packet) ──
             if (isTlvMatch(tlv, idrNotify)) {
-                if (!loggedFirstAck) {
-                    loggedFirstAck = true
-                    io.github.saltmango.navbeam.data.RideDiagnostics.log("dash", "display DECODED first IDR — video accepted ✓")
+                if (!idrAckSent) {
+                    idrAckSent = true
+                    if (!loggedFirstAck) {
+                        loggedFirstAck = true
+                        io.github.saltmango.navbeam.data.RideDiagnostics.log("dash", "display DECODED first IDR — video accepted ✓")
+                    }
+                    sock.send(DashCommands.frameDecodedIdr())
                 }
-                sock.send(DashCommands.frameDecodedIdr())
                 continue
             }
-            // ── P-frame decoded → P-frame ACK ──
+            // ── P-frame decoded → P-frame ACK (at most once per packet) ──
             if (isTlvMatch(tlv, pNotify)) {
-                sock.send(DashCommands.frameDecodedP())
+                if (!pAckSent) {
+                    pAckSent = true
+                    sock.send(DashCommands.frameDecodedP())
+                }
                 continue
             }
-            // ── Button / joystick event → echo ack + notify UI ──
+            // ── Button / joystick event → echo ack + notify UI (at most once per packet) ──
             if (tlv.type == cmd.buttonEventTag.type && tlv.sub == cmd.buttonEventTag.sub && tlv.value.isNotEmpty()) {
-                val btn = tlv.value.last()
-                Dbg.i(TAG) { "INPUT EVENT → code 0x${(btn.toInt() and 0xFF).toString(16).uppercase()}  full=${tlv.value.toHexFull()}" }
-                sock.send(DashCommands.buttonAck(btn))
-                scope.launch(Dispatchers.Main) { onButton?.invoke(btn) }
+                if (!buttonHandled) {
+                    buttonHandled = true
+                    val btn = tlv.value.last()
+                    Dbg.i(TAG) { "INPUT EVENT → code 0x${(btn.toInt() and 0xFF).toString(16).uppercase()}  full=${tlv.value.toHexFull()}" }
+                    sock.send(DashCommands.buttonAck(btn))
+                    scope.launch(Dispatchers.Main) { onButton?.invoke(btn) }
+                }
                 continue
             }
             // ── Vehicle-secure telemetry (AES-256-CBC under the session key) ──
@@ -660,10 +672,11 @@ class DashSession(private val scope: CoroutineScope) {
             }
         }
         val secM = state.maneuver.secondaryManeuver
-        Log.d(TAG, "Navigation Update: " +
-            "Primary: {type=${nextManeuver?.type}, raw=${nextManeuver?.rawGoogleManeuver}, instr=\"${nextManeuver?.instruction}\"} -> dashCode=0x%02X (dist=$pv). ".format(navManeuver) +
-            "Secondary: {type=${secM?.type}, raw=${secM?.rawGoogleManeuver}, instr=\"${secM?.instruction}\"} -> dashCode=0x%02X (dist=$navSecondaryDist, unit=$navSecondaryUnit)".format(navSecondaryManeuver)
-        )
+        Dbg.d(TAG) {
+            "Navigation Update: " +
+                "Primary: {type=${nextManeuver?.type}, raw=${nextManeuver?.rawGoogleManeuver}, instr=\"${nextManeuver?.instruction}\"} -> dashCode=0x%02X (dist=$pv). ".format(navManeuver) +
+                "Secondary: {type=${secM?.type}, raw=${secM?.rawGoogleManeuver}, instr=\"${secM?.instruction}\"} -> dashCode=0x%02X (dist=$navSecondaryDist, unit=$navSecondaryUnit)".format(navSecondaryManeuver)
+        }
         navActive = true
     }
 
@@ -760,7 +773,7 @@ class DashSession(private val scope: CoroutineScope) {
 
     /** AES-256-CBC/PKCS5 decrypt of an [iv(16) ‖ ciphertext] blob under the session key. */
     private fun aesDecryptCbc(ivAndCt: ByteArray, key: ByteArray): ByteArray? = runCatching {
-        if (ivAndCt.size <= 16) return null
+        if (key.size != 32 || ivAndCt.size <= 16 || (ivAndCt.size - 16) % 16 != 0) return null
         val cipher = javax.crypto.Cipher.getInstance("AES/CBC/PKCS5Padding")
         cipher.init(
             javax.crypto.Cipher.DECRYPT_MODE,

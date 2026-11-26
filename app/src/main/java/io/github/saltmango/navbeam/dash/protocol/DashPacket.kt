@@ -112,10 +112,13 @@ object DashPacket {
 
     fun tlv(spec: TlvSpec): Tlv = Tlv(spec.type, spec.sub, spec.value)
 
+    const val MAX_INCOMING_TLVS = 64
+
     /** Parse a display → app packet starting at `protocol.incomingHeaderOffset`. */
     fun parseIncoming(
         data: ByteArray,
-        headerOffset: Int = DashProfileManager.activeProfile.value.protocol.incomingHeaderOffset
+        headerOffset: Int = DashProfileManager.activeProfile.value.protocol.incomingHeaderOffset,
+        maxTlvs: Int = MAX_INCOMING_TLVS,
     ): List<Tlv> {
         val tlvs = mutableListOf<Tlv>()
         val startOffset = headerOffset.coerceAtLeast(4)
@@ -123,7 +126,7 @@ object DashPacket {
         val segCount = ((data[2].toInt() and 0xFF) shl 8) or (data[3].toInt() and 0xFF)
         var i = startOffset
         var n = 0
-        while (n < segCount && i + 4 <= data.size) {
+        while (n < segCount && tlvs.size < maxTlvs && i + 4 <= data.size) {
             val type = data[i].toInt() and 0xFF
             val sub  = data[i + 1].toInt() and 0xFF
             val len  = ((data[i + 2].toInt() and 0xFF) shl 8) or (data[i + 3].toInt() and 0xFF)

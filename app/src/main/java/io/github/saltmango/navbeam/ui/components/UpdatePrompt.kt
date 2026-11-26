@@ -123,7 +123,7 @@ fun UpdatePrompt() {
                         failed = false
                         progress = 0f
                         val file = withContext(Dispatchers.IO) {
-                            UpdateChecker.download(context, r.apkUrl) { p -> progress = p }
+                            UpdateChecker.download(context, r.apkUrl, r.sha256) { p -> progress = p }
                         }
                         downloading = false
                         if (file != null) {

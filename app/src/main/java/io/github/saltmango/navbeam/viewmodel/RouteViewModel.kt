@@ -233,7 +233,8 @@ class RouteViewModel(app: Application) : AndroidViewModel(app) {
             )
             computeRouteFromCurrentStops()
         } else {
-            Log.w(TAG, "Could not extract coordinates from shared text: $text")
+            io.github.saltmango.navbeam.util.Dbg.w(TAG) { "Could not extract coordinates from shared text: $text" }
+            Log.w(TAG, "Could not extract coordinates from shared text (len=${text.length})")
         }
     }
 

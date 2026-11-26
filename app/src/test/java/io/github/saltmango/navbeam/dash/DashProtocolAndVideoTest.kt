@@ -297,4 +297,69 @@ class DashProtocolAndVideoTest {
         assertEquals(0x80 or 102, packets[2][1].toInt() and 0xFF)
         assertTrue(packets.all { it.size <= 312 })
     }
+
+    @Test
+    fun dashSocket_trustedControlSenderMatchesExactDashIpOnly() {
+        val dash = java.net.InetAddress.getByAddress(byteArrayOf(10, 0, 0, 1))
+        val sameDash = java.net.InetAddress.getByAddress(byteArrayOf(10, 0, 0, 1))
+        val otherLan = java.net.InetAddress.getByAddress(byteArrayOf(10, 0, 0, 42))
+        val loopback = java.net.InetAddress.getByAddress(byteArrayOf(127, 0, 0, 1))
+        val unspecified = java.net.InetAddress.getByAddress(byteArrayOf(0, 0, 0, 0))
+
+        assertTrue(DashSocket.isTrustedControlSender(sameDash, dash))
+        assertFalse(DashSocket.isTrustedControlSender(otherLan, dash))
+        assertFalse(DashSocket.isTrustedControlSender(loopback, dash))
+        assertFalse(DashSocket.isTrustedControlSender(unspecified, dash))
+        assertFalse(DashSocket.isTrustedControlSender(null, dash))
+    }
+
+    @Test
+    fun dashAuth_rejectsWeakMalformedAndOversizedRsaKeys() {
+        DashProfileManager.setActiveProfileForTest(testProfile())
+        val auth = DashAuth("TEST_BIKE")
+
+        // Valid 1024-bit odd modulus + e=65537 passes parameter check
+        val kpg1024 = java.security.KeyPairGenerator.getInstance("RSA").apply { initialize(1024) }
+        val pub1024 = kpg1024.generateKeyPair().public as java.security.interfaces.RSAPublicKey
+        assertTrue(DashAuth.isValidRsaParameters(pub1024.modulus, pub1024.publicExponent))
+
+        // Weak 512-bit modulus rejected
+        val kpg512 = java.security.KeyPairGenerator.getInstance("RSA").apply { initialize(512) }
+        val pub512 = kpg512.generateKeyPair().public as java.security.interfaces.RSAPublicKey
+        assertFalse(DashAuth.isValidRsaParameters(pub512.modulus, pub512.publicExponent))
+
+        // Feed weak 512-bit modulus + exponent through DashAuth.ingest -> must NOT emit SendKey or set sessionKey
+        val modEvent = auth.ingest(DashPacket.tlv(0x00, 0x02, pub512.modulus.toByteArray()))
+        val expEvent = auth.ingest(DashPacket.tlv(0x00, 0x03, pub512.publicExponent.toByteArray()))
+        assertTrue(modEvent is AuthEvent.None)
+        assertTrue(expEvent is AuthEvent.None)
+        assertNull(auth.sessionKey)
+
+        // Even modulus / e=1 / oversized modulus rejected
+        val evenMod = java.math.BigInteger.ONE.shiftLeft(1024)
+        assertFalse(DashAuth.isValidRsaParameters(evenMod, java.math.BigInteger.valueOf(65537L)))
+        assertFalse(DashAuth.isValidRsaParameters(pub1024.modulus, java.math.BigInteger.ONE))
+        val hugeMod = java.math.BigInteger.ONE.shiftLeft(4096).add(java.math.BigInteger.ONE)
+        assertFalse(DashAuth.isValidRsaParameters(hugeMod, java.math.BigInteger.valueOf(65537L)))
+
+        // Valid 1024-bit key succeeds and produces encrypted session key packet
+        assertTrue(auth.ingest(DashPacket.tlv(0x00, 0x02, pub1024.modulus.toByteArray())) is AuthEvent.None)
+        val validSend = auth.ingest(DashPacket.tlv(0x00, 0x03, pub1024.publicExponent.toByteArray()))
+        assertTrue(validSend is AuthEvent.SendKey)
+        assertEquals(32, auth.sessionKey?.size)
+    }
+
+    @Test
+    fun parseIncoming_capsMaximumParsedTlvs() {
+        val tlvCount = 100
+        val out = java.io.ByteArrayOutputStream()
+        out.write(0); out.write(0)
+        out.write(0); out.write(tlvCount)
+        out.write(ByteArray(4)) // headerOffset=8 -> 4 bytes after segCount
+        repeat(tlvCount) {
+            out.write(0x03); out.write(0x01); out.write(0x00); out.write(0x01); out.write(0x14)
+        }
+        val parsed = DashPacket.parseIncoming(out.toByteArray(), headerOffset = 8)
+        assertEquals(DashPacket.MAX_INCOMING_TLVS, parsed.size)
+    }
 }

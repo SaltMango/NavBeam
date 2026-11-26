@@ -140,7 +140,9 @@ class DashWifiManager(
         wifi.scanResults
             .mapNotNull { it.SSID?.trim('"')?.takeIf { s -> s.isNotBlank() } }
             .firstOrNull { it.startsWith(prefix) }
-            .also { Log.i(TAG, "Scan lookup for '$prefix*' → ${it ?: "not found"}") }
+            .also { found ->
+                io.github.saltmango.navbeam.util.Dbg.i(TAG) { "Scan lookup for '$prefix*' → ${found ?: "not found"}" }
+            }
     } catch (e: Exception) {
         Log.w(TAG, "Scan lookup failed: ${e.message}"); null
     }
@@ -157,8 +159,10 @@ class DashWifiManager(
 
     private fun requestNetwork() {
         release()
-        Log.i(TAG, "Requesting WiFi: '$pendingSsid' " +
-            "(${if (pendingPrefix) "prefix" else "exact"}, password=${if (pendingPassword.isBlank()) "none" else "set"})")
+        io.github.saltmango.navbeam.util.Dbg.i(TAG) {
+            "Requesting WiFi: '$pendingSsid' " +
+                "(${if (pendingPrefix) "prefix" else "exact"}, password=${if (pendingPassword.isBlank()) "none" else "set"})"
+        }
         _state.value = WifiState(status = WifiConnStatus.REQUESTING, ssid = pendingSsid)
 
         val specBuilder = WifiNetworkSpecifier.Builder()
@@ -179,7 +183,8 @@ class DashWifiManager(
                 // SSID is read in onCapabilitiesChanged (transportInfo isn't populated here
                 // yet on Android 13+). Try once anyway, else fall back to the pending value.
                 val resolved = resolveSsid(network).takeIf { it.isNotBlank() } ?: pendingSsid
-                Log.i(TAG, "WiFi connected ✓  ssid='$resolved' network=$network")
+                io.github.saltmango.navbeam.util.Dbg.i(TAG) { "WiFi connected ✓  ssid='$resolved' network=$network" }
+                Log.i(TAG, "WiFi connected ✓")
                 if (resolved.isNotBlank() && resolved != pendingSsid) onSsidResolved?.invoke(resolved)
                 _state.value = WifiState(status = WifiConnStatus.CONNECTED, ssid = resolved)
             }
@@ -194,7 +199,7 @@ class DashWifiManager(
                 if (ssid == resolvedSsid) return
                 resolvedSsid = ssid
                 this@DashWifiManager.network = network
-                Log.i(TAG, "Resolved dash SSID: '$ssid'")
+                io.github.saltmango.navbeam.util.Dbg.i(TAG) { "Resolved dash SSID: '$ssid'" }
                 onSsidResolved?.invoke(ssid)
                 _state.value = WifiState(status = WifiConnStatus.CONNECTED, ssid = ssid)
             }

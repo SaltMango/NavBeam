@@ -65,6 +65,13 @@ object ProfileFileImporter {
         return targetFile
     }
 
+    fun validateExternalContentAuthority(authority: String?, ownPackageName: String) {
+        val ownFileProviderAuthority = "$ownPackageName.fileprovider"
+        if (authority != null && authority.equals(ownFileProviderAuthority, ignoreCase = true)) {
+            throw SecurityException("Importing from app-internal FileProvider is not allowed.")
+        }
+    }
+
     fun importFromStream(
         stream: InputStream,
         sourceLabel: String? = null,
@@ -84,6 +91,9 @@ object ProfileFileImporter {
     }
 
     fun importFromUri(context: Context, uri: Uri): Result<ImportedProfilePayload> = runCatching {
+        if (uri.scheme.equals("content", ignoreCase = true)) {
+            validateExternalContentAuthority(uri.authority, context.packageName)
+        }
         if (uri.scheme.equals("file", ignoreCase = true)) {
             val privateDirs = listOfNotNull(
                 context.filesDir,

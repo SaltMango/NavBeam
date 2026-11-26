@@ -29,9 +29,20 @@ class DashConfig private constructor(context: Context) {
         set(v) = prefs.edit().putString(KEY_SSID, v).apply()
 
     var password: String
-        get() = prefs.getString(KEY_PASSWORD, null)
-            ?: io.github.saltmango.navbeam.dash.profile.DashProfileManager.activeProfile.value.network.defaultPassword
-        set(v) = prefs.edit().putString(KEY_PASSWORD, v).apply()
+        get() {
+            val raw = prefs.getString(KEY_PASSWORD, null)
+            val decrypted = raw?.let { io.github.saltmango.navbeam.util.SecretStore.decrypt(it) }
+            return decrypted
+                ?: io.github.saltmango.navbeam.dash.profile.DashProfileManager.activeProfile.value.network.defaultPassword
+        }
+        set(v) {
+            if (v.isEmpty()) {
+                prefs.edit().remove(KEY_PASSWORD).apply()
+            } else {
+                val encrypted = io.github.saltmango.navbeam.util.SecretStore.encrypt(v) ?: return
+                prefs.edit().putString(KEY_PASSWORD, encrypted).apply()
+            }
+        }
 
     /** True until a specific dash has been identified — connect by prefix discovery. */
     val needsDiscovery: Boolean get() = ssid.isBlank()
@@ -42,7 +53,7 @@ class DashConfig private constructor(context: Context) {
     companion object {
         private const val KEY_PREFIX   = "ssid_prefix"
         private const val KEY_SSID     = "ssid"
-        private const val KEY_PASSWORD = "password"
+        private const val KEY_PASSWORD = "password_enc"
 
         @Volatile private var instance: DashConfig? = null
         fun get(context: Context): DashConfig =

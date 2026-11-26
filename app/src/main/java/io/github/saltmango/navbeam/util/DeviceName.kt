@@ -32,10 +32,9 @@ object DeviceName {
         val globalLegacy = runCatching { Settings.Global.getString(resolver, "device_name") }.getOrNull()
         val system = runCatching { Settings.System.getString(resolver, "device_name") }.getOrNull()
 
-        android.util.Log.d(
-            "DeviceName",
-            "Lookup: btAdapter=$btAdapterName, secure=$secure, global=$global, globalLegacy=$globalLegacy, system=$system",
-        )
+        Dbg.d("DeviceName") {
+            "Lookup: btAdapter=$btAdapterName, secure=$secure, global=$global, globalLegacy=$globalLegacy, system=$system"
+        }
 
         // Priority order: Bluetooth adapter name first (modern API), then bluetooth_name settings, then global settings.
         val names = listOf(btAdapterName, secure, global, globalLegacy, system)
@@ -47,7 +46,7 @@ object DeviceName {
                 val sanitized = name.filter { it.isLetterOrDigit() || it == ' ' }.trim()
                 if (sanitized.isNotBlank()) {
                     val result = if (sanitized.length > 12) sanitized.take(12).trim() else sanitized
-                    android.util.Log.i("DeviceName", "Selected: '$result' (from raw '$name')")
+                    Dbg.i("DeviceName") { "Selected: '$result' (from raw '$name')" }
                     return result
                 }
             }
@@ -64,7 +63,7 @@ object DeviceName {
 
         val fallback = rawFallback.filter { it.isLetterOrDigit() || it == ' ' }.trim()
         val result = if (fallback.length > 12) fallback.take(12).trim() else fallback
-        android.util.Log.i("DeviceName", "Selected Fallback: '$result'")
+        Dbg.i("DeviceName") { "Selected Fallback: '$result'" }
         return result.ifBlank { "NavBeam" }
     }
 }

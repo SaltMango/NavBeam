@@ -64,13 +64,30 @@ object SettingsPrefs {
         prefs(context).edit().putString(KEY_NAV_MODE, value).apply()
     }
 
-    private const val KEY_MAPS_API_KEY = "maps_api_key"
+    private const val KEY_MAPS_API_KEY = "maps_api_key_enc"
+    private const val KEY_JOYSTICK_CALL_ANSWER = "joystick_call_answer"
 
-    fun getMapsApiKey(context: Context): String =
-        prefs(context).getString(KEY_MAPS_API_KEY, "") ?: ""
+    fun getMapsApiKey(context: Context): String {
+        val raw = prefs(context).getString(KEY_MAPS_API_KEY, null) ?: return ""
+        return io.github.saltmango.navbeam.util.SecretStore.decrypt(raw).orEmpty()
+    }
 
     fun setMapsApiKey(context: Context, value: String) {
-        prefs(context).edit().putString(KEY_MAPS_API_KEY, value).apply()
+        val editor = prefs(context).edit()
+        if (value.isBlank()) {
+            editor.remove(KEY_MAPS_API_KEY).apply()
+        } else {
+            val encrypted = io.github.saltmango.navbeam.util.SecretStore.encrypt(value) ?: return
+            editor.putString(KEY_MAPS_API_KEY, encrypted).apply()
+        }
+    }
+
+    /** Explicit opt-in required before joystick button events may answer incoming calls. */
+    fun getJoystickCallAnswerEnabled(context: Context): Boolean =
+        prefs(context).getBoolean(KEY_JOYSTICK_CALL_ANSWER, false)
+
+    fun setJoystickCallAnswerEnabled(context: Context, value: Boolean) {
+        prefs(context).edit().putBoolean(KEY_JOYSTICK_CALL_ANSWER, value).apply()
     }
 
     private const val KEY_BIKE_NAME = "bike_name"

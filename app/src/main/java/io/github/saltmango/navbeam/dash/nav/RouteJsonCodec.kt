@@ -10,6 +10,9 @@ import org.json.JSONObject
  */
 object RouteJsonCodec {
     private const val TAG = "RouteJsonCodec"
+    const val MAX_JSON_CHARS = 8 * 1024 * 1024
+    const val MAX_GEOMETRY_POINTS = 50_000
+    const val MAX_MANEUVERS = 5_000
 
     fun toJson(route: Route): String {
         return try {
@@ -48,22 +51,26 @@ object RouteJsonCodec {
     }
 
     fun fromJson(jsonStr: String): Route? {
-        if (jsonStr.isBlank()) return null
+        if (jsonStr.isBlank() || jsonStr.length > MAX_JSON_CHARS) return null
         return try {
             val root = JSONObject(jsonStr)
             val totalMeters = root.optDouble("totalMeters", 0.0)
             val totalSeconds = root.optDouble("totalSeconds", 0.0)
             val staticSeconds = root.optDouble("staticSeconds", totalSeconds)
+            if (!totalMeters.isFinite() || totalMeters < 0.0) return null
+            if (!totalSeconds.isFinite() || totalSeconds < 0.0) return null
+            if (!staticSeconds.isFinite() || staticSeconds < 0.0) return null
 
-            val geomList = ArrayList<GeoPoint>()
-            val geomArray = root.optJSONArray("geometry")
-            if (geomArray != null) {
-                for (i in 0 until geomArray.length()) {
-                    val obj = geomArray.getJSONObject(i)
-                    geomList.add(GeoPoint(obj.getDouble("lat"), obj.getDouble("lng")))
-                }
+            val geomArray = root.optJSONArray("geometry") ?: return null
+            if (geomArray.length() < 2 || geomArray.length() > MAX_GEOMETRY_POINTS) return null
+            val geomList = ArrayList<GeoPoint>(geomArray.length())
+            for (i in 0 until geomArray.length()) {
+                val obj = geomArray.getJSONObject(i)
+                val lat = obj.getDouble("lat")
+                val lng = obj.getDouble("lng")
+                if (!isValidCoord(lat, lng)) return null
+                geomList.add(GeoPoint(lat, lng))
             }
-            if (geomList.size < 2) return null
 
             val cum = DoubleArray(geomList.size)
             for (i in 1 until geomList.size) {
@@ -73,6 +80,7 @@ object RouteJsonCodec {
             val manList = ArrayList<Maneuver>()
             val manArray = root.optJSONArray("maneuvers")
             if (manArray != null) {
+                if (manArray.length() > MAX_MANEUVERS) return null
                 for (i in 0 until manArray.length()) {
                     val obj = manArray.getJSONObject(i)
                     val typeName = obj.optString("type", "CONTINUE")
@@ -80,7 +88,9 @@ object RouteJsonCodec {
                     val instruction = obj.optString("instruction", "")
                     val lat = obj.optDouble("lat", 0.0)
                     val lng = obj.optDouble("lng", 0.0)
+                    if (!isValidCoord(lat, lng)) return null
                     val cumulativeMeters = obj.optDouble("cumulativeMeters", 0.0)
+                    if (!cumulativeMeters.isFinite() || cumulativeMeters < 0.0) return null
                     val rawGoogle = if (obj.has("rawGoogleManeuver")) obj.getString("rawGoogleManeuver") else null
 
                     manList.add(
@@ -108,6 +118,9 @@ object RouteJsonCodec {
             null
         }
     }
+
+    private fun isValidCoord(lat: Double, lng: Double): Boolean =
+        lat.isFinite() && lng.isFinite() && lat in -90.0..90.0 && lng in -180.0..180.0
 
     /**
      * Fallback for return route if online fetch is unavailable: reverses the polyline

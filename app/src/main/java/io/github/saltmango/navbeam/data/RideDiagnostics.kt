@@ -19,7 +19,7 @@ import java.util.zip.ZipOutputStream
 /**
  * Local-only ride, crash, and diagnostics store.
  *
- * Writes append-only, PII-free logs under `<externalFilesDir>/diag` (falling back to `<filesDir>/diag`)
+ * Writes append-only, PII-free logs under `<filesDir>/diag` (internal app-private storage)
  * so riders can report issues or export a `.zip` bundle directly from Menu → Diagnostics & Bug Reports.
  *
  * Every write is synchronous/guarded so logging can never crash a ride, and no telemetry ever
@@ -45,7 +45,7 @@ object RideDiagnostics {
 
     fun diagDir(context: Context): File =
         dir ?: synchronized(lock) {
-            dir ?: File(context.applicationContext.getExternalFilesDir(null) ?: context.applicationContext.filesDir, "diag")
+            dir ?: File(context.applicationContext.filesDir, "diag")
                 .apply { mkdirs() }
                 .also { dir = it }
         }
@@ -178,7 +178,12 @@ object RideDiagnostics {
             }
             for (f in logFiles) {
                 zos.putNextEntry(ZipEntry(f.name))
-                f.inputStream().use { it.copyTo(zos) }
+                if (f.name.endsWith(".log") || f.name.endsWith(".txt")) {
+                    val redacted = DiagReporter.redact(f.readText(Charsets.UTF_8))
+                    zos.write(redacted.toByteArray(Charsets.UTF_8))
+                } else {
+                    f.inputStream().use { it.copyTo(zos) }
+                }
                 zos.closeEntry()
             }
         }

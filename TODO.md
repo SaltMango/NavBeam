@@ -47,5 +47,27 @@
   - Export/share active profiles as `<profile.id>.navbeam` (plain UTF-8 JSON inside) via Android Sharesheet (`FileProvider` + `Intent.ACTION_SEND`) for WhatsApp, Telegram, and Email.
   - Register `<intent-filter>` on `MainActivity` for `.navbeam` (`ACTION_VIEW` / `ACTION_SEND`) to route directly to the **Verify Profile** dialog while keeping `.json` and **Paste JSON** supported.
 
+---
+
+## 🚀 P3 — Store Publishing Checklists
+
+### Google Play Store (`play` flavor)
+- [ ] **Remove Self-Updater (`REQUEST_INSTALL_PACKAGES`):** Omit `REQUEST_INSTALL_PACKAGES` and disable `UpdateChecker` in the `play` build flavor (Google Play handles app updates).
+- [ ] **Bundle Release (`.aab`):** Configure Play App Signing and build with `./gradlew bundleRelease`.
+- [ ] **Privacy Policy & Data Safety:** Host a public Privacy Policy (e.g., `PRIVACY.md` / GitHub Pages) stating 100% local on-device operation with zero data collection, and complete the Play Console Data Safety form.
+- [ ] **Restricted Permissions Declarations & Demo Videos:**
+  - Add prominent in-app disclosures before requesting background/FGS location (`FOREGROUND_SERVICE_LOCATION`), `NavBeamNotificationListener`, and `ANSWER_PHONE_CALLS`.
+  - Record short screen-capture demo videos for Play Console review (and justify or make optional `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`).
+- [ ] **Clean-Room Store Listing:** Ensure app title, screenshots, and description avoid manufacturer trademarks or implied endorsement.
+- [ ] **Closed Testing Gate:** Complete the 12-tester / 14-day closed test requirement (if using a new personal Play Console account) before Production rollout.
+
+### F-Droid Official Repository (`fdroid` flavor)
+- [ ] **100% FOSS Dependencies:** Move `play-services-maps`, `maps-compose`, `places`, `play-services-location`, and `kotlinx-coroutines-play-services` to `standardImplementation(...)` only; use MapLibre + OpenFreeMap + open routing + raw `LocationManager` in `fdroid` (or complete P1 across all builds).
+- [ ] **Remove Self-Updater:** Omit `REQUEST_INSTALL_PACKAGES` and `UpdateChecker` in the `fdroid` flavor (F-Droid signs and distributes updates).
+- [ ] **Bundle Offline Fonts:** Replace `com.google.android.gms.fonts` in `Type.kt` with bundled `Geist` & `Geist Mono` `.ttf` files in `app/src/main/res/font/`.
+- [ ] **Reproducible Keyless Build:** Verify `./gradlew assembleFdroidRelease` builds from a clean checkout without `local.properties` or API keys.
+- [ ] **Fastlane Metadata & Submission:** Add `fastlane/metadata/android/en-US/` (descriptions, icon, screenshots, changelogs) and submit `metadata/io.github.saltmango.navbeam.yml` to `fdroid/fdroiddata`.
+
+
 
 

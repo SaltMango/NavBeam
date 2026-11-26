@@ -309,4 +309,33 @@ class DashProfileSecurityTest {
             runCatching { DashProfileValidator.validate(utf8Ssid) }.isFailure
         )
     }
+
+    @Test
+    fun rejectsOwnFileProviderAuthority() {
+        val thrown = runCatching {
+            ProfileFileImporter.validateExternalContentAuthority(
+                authority = "io.github.saltmango.navbeam.fileprovider",
+                ownPackageName = "io.github.saltmango.navbeam",
+            )
+        }
+        assertTrue(thrown.isFailure)
+        assertTrue(thrown.exceptionOrNull() is SecurityException)
+
+        val upperThrown = runCatching {
+            ProfileFileImporter.validateExternalContentAuthority(
+                authority = "IO.GITHUB.SALTMANGO.NAVBEAM.FILEPROVIDER",
+                ownPackageName = "io.github.saltmango.navbeam",
+            )
+        }
+        assertTrue(upperThrown.isFailure)
+        assertTrue(upperThrown.exceptionOrNull() is SecurityException)
+
+        val external = runCatching {
+            ProfileFileImporter.validateExternalContentAuthority(
+                authority = "com.android.providers.downloads.documents",
+                ownPackageName = "io.github.saltmango.navbeam",
+            )
+        }
+        assertTrue(external.isSuccess)
+    }
 }

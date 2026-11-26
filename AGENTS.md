@@ -98,6 +98,11 @@ link is isolated:
 - **Clean-Break Maintenance:** Remove obsolete code paths completely rather than leaving `@Deprecated` shims or duplicate logic.
 - **Never Bypass Safeguards:** Never use `--no-verify` on git commits, never disable lint/compiler checks, and never weaken tests to make a build pass.
 
+### 5. Comments & Documentation Discipline
+- **Explain the "Why", Not the "What":** Add concise KDoc on public APIs/classes and inline comments only for non-obvious invariants, OEM/Android quirks, protocol constraints, or concurrency rationale—never narrate obvious code.
+- **No In-Code Changelogs:** Never write changelogs, version numbers, dates, author tags, or *"changed/removed X"* edit history inside source comments or KDoc. Git history is the changelog.
+- **Keep Comments Accurate:** Preserve unrelated existing comments, and update or delete stale comments that contradict your changes.
+
 ## Testing & Verification Rules (for AI Agents)
 
 1. **Run verification after every code change:** Execute `./gradlew :app:assembleDebug testDebugUnitTest` after editing Kotlin code (and `lintDebug` when modifying `AndroidManifest.xml`, permissions, or resources) and verify all checks pass before finishing.

@@ -23,6 +23,18 @@ class DiagReporterTest {
     }
 
     @Test
+    fun redact_stripsPasswordsAndApiKeys() {
+        val raw = "https://maps.googleapis.com/maps/api/directions/json?origin=1,2&key=AIzaSyA1234567890abcdefGHIJK&token=secret99 password='bikePass!' password=rawpass"
+        val clean = DiagReporter.redact(raw)
+
+        assertFalse(clean.contains("AIzaSy"))
+        assertFalse(clean.contains("secret99"))
+        assertFalse(clean.contains("bikePass!"))
+        assertFalse(clean.contains("rawpass"))
+        assertTrue(clean.contains("password=[redacted]"))
+    }
+
+    @Test
     fun summarizeCrash_extractsExceptionLine() {
         val temp = File.createTempFile("crash-test", ".log")
         try {

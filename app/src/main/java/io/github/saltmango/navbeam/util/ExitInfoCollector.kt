@@ -93,22 +93,24 @@ object ExitInfoCollector {
             info.processStateSummary?.toString(Charsets.UTF_8)?.takeIf { it.isNotBlank() }
         }.getOrNull() ?: "unknown"
 
-        val text = buildString {
-            appendLine("=== NavBeam process exit (ApplicationExitInfo) ===")
-            appendLine("when=$stamp (${info.timestamp})")
-            appendLine("exception=${reasonName(info.reason)} — ${info.description ?: ""}")
-            appendLine("importance=${info.importance} status=${info.status}")
-            appendLine("apk=$crashedBuild")
-            appendLine("collected-by=${BuildId.sha12(context)}")
-            appendLine("app=${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
-            appendLine("device=${Build.MANUFACTURER} ${Build.MODEL}")
-            appendLine("android=${Build.VERSION.RELEASE} (sdk ${Build.VERSION.SDK_INT})")
-            if (trace != null) {
-                appendLine()
-                appendLine("--- trace / tombstone ---")
-                append(trace)
+        val text = io.github.saltmango.navbeam.data.DiagReporter.redact(
+            buildString {
+                appendLine("=== NavBeam process exit (ApplicationExitInfo) ===")
+                appendLine("when=$stamp (${info.timestamp})")
+                appendLine("exception=${reasonName(info.reason)} — ${info.description ?: ""}")
+                appendLine("importance=${info.importance} status=${info.status}")
+                appendLine("apk=$crashedBuild")
+                appendLine("collected-by=${BuildId.sha12(context)}")
+                appendLine("app=${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
+                appendLine("device=${Build.MANUFACTURER} ${Build.MODEL}")
+                appendLine("android=${Build.VERSION.RELEASE} (sdk ${Build.VERSION.SDK_INT})")
+                if (trace != null) {
+                    appendLine()
+                    appendLine("--- trace / tombstone ---")
+                    append(trace)
+                }
             }
-        }
+        )
         File(dir, "crash-exit-$stamp.log").writeText(text)
     }
 

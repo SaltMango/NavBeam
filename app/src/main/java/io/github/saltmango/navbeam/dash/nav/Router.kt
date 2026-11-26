@@ -3,10 +3,14 @@ package io.github.saltmango.navbeam.dash.nav
 import android.content.Context
 import android.util.Log
 import io.github.saltmango.navbeam.BuildConfig
+import io.github.saltmango.navbeam.data.DiagReporter
 import io.github.saltmango.navbeam.data.MapsKeyManager
+import io.github.saltmango.navbeam.util.Dbg
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
+import java.io.ByteArrayOutputStream
+import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URL
 
@@ -22,6 +26,7 @@ import java.net.URL
  */
 object Router {
     private const val TAG = "Router"
+    private const val MAX_ROUTE_RESPONSE_BYTES = 4 * 1024 * 1024
 
     // ── Public entry point ────────────────────────────────────────────────────
 
@@ -71,11 +76,11 @@ object Router {
                 connectTimeout = 10_000
                 readTimeout = 10_000
             }
-            val body = conn.inputStream.use { it.readBytes().toString(Charsets.UTF_8) }
+            val body = conn.inputStream.use { readBoundedUtf8(it) }
             conn.disconnect()
             parseDirections(body)
         } catch (e: Exception) {
-            Log.w(TAG, "fetchDirections failed: ${e.message}")
+            Log.w(TAG, "fetchDirections failed: ${DiagReporter.redact(e.message.orEmpty())}")
             null
         }
     }
@@ -162,9 +167,9 @@ object Router {
 
         val finalMeters = if (totalDistMeters > 0.0) totalDistMeters else cum.last()
 
-        android.util.Log.d("Router", "Parsed Route (Directions): totalMeters=$finalMeters. Maneuvers count=${maneuvers.size}")
+        Dbg.d(TAG) { "Parsed Route (Directions): totalMeters=$finalMeters. Maneuvers count=${maneuvers.size}" }
         maneuvers.forEachIndexed { index, m ->
-            android.util.Log.d("Router", "  Maneuver[$index]: type=${m.type}, rawGoogle=${m.rawGoogleManeuver}, cumMeters=${m.cumulativeMeters}, instr=\"${m.instruction}\" -> dashCode=0x%02X".format(m.dashCode))
+            Dbg.d(TAG) { "  Maneuver[$index]: type=${m.type}, rawGoogle=${m.rawGoogleManeuver}, cumMeters=${m.cumulativeMeters}, instr=\"${m.instruction}\" -> dashCode=0x%02X".format(m.dashCode) }
         }
 
         return Route(
@@ -211,17 +216,17 @@ object Router {
 
             val code = conn.responseCode
             val body = if (code in 200..299) {
-                conn.inputStream.use { it.readBytes().toString(Charsets.UTF_8) }
+                conn.inputStream.use { readBoundedUtf8(it) }
             } else {
-                val err = conn.errorStream?.use { it.readBytes().toString(Charsets.UTF_8) } ?: ""
-                Log.w(TAG, "Routes API HTTP $code: $err")
+                val err = conn.errorStream?.use { readBoundedUtf8(it, maxBytes = 64 * 1024) }.orEmpty()
+                Log.w(TAG, "Routes API HTTP $code: ${DiagReporter.redact(err)}")
                 conn.disconnect()
                 return null
             }
             conn.disconnect()
             parseRoutes(body)
         } catch (e: Exception) {
-            Log.w(TAG, "fetchRoutes failed: ${e.message}")
+            Log.w(TAG, "fetchRoutes failed: ${DiagReporter.redact(e.message.orEmpty())}")
             null
         }
     }
@@ -332,9 +337,9 @@ object Router {
 
         val finalMeters = if (totalDistMeters > 0.0) totalDistMeters else cum.last()
 
-        android.util.Log.d("Router", "Parsed Route (Routes API): totalMeters=$finalMeters. Maneuvers count=${maneuvers.size}")
+        Dbg.d(TAG) { "Parsed Route (Routes API): totalMeters=$finalMeters. Maneuvers count=${maneuvers.size}" }
         maneuvers.forEachIndexed { index, m ->
-            android.util.Log.d("Router", "  Maneuver[$index]: type=${m.type}, rawGoogle=${m.rawGoogleManeuver}, cumMeters=${m.cumulativeMeters}, instr=\"${m.instruction}\" -> dashCode=0x%02X".format(m.dashCode))
+            Dbg.d(TAG) { "  Maneuver[$index]: type=${m.type}, rawGoogle=${m.rawGoogleManeuver}, cumMeters=${m.cumulativeMeters}, instr=\"${m.instruction}\" -> dashCode=0x%02X".format(m.dashCode) }
         }
 
         return Route(
@@ -385,4 +390,20 @@ object Router {
 
     private fun stripHtml(html: String): String =
         html.replace(Regex("<[^>]*>"), "").replace("&nbsp;", " ")
+
+    private fun readBoundedUtf8(stream: InputStream, maxBytes: Int = MAX_ROUTE_RESPONSE_BYTES): String {
+        val out = ByteArrayOutputStream()
+        val buf = ByteArray(8192)
+        var total = 0
+        while (true) {
+            val n = stream.read(buf)
+            if (n <= 0) break
+            total += n
+            if (total > maxBytes) {
+                throw SecurityException("Route response exceeded ${maxBytes / 1024} KB limit")
+            }
+            out.write(buf, 0, n)
+        }
+        return out.toByteArray().toString(Charsets.UTF_8)
+    }
 }

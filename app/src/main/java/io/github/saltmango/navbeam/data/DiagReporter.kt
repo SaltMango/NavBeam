@@ -36,11 +36,17 @@ object DiagReporter {
 
     private val coordRegex = Regex("""-?\d{1,3}\.\d{4,}\s*,\s*-?\d{1,3}\.\d{4,}""")
     private val ssidRegex = Regex("""ssid\s*=\s*['"]?[^'"\s)]+['"]?""", RegexOption.IGNORE_CASE)
+    private val passwordRegex = Regex("""password\s*=\s*['"]?[^'"\s)]+['"]?""", RegexOption.IGNORE_CASE)
+    private val googleApiKeyRegex = Regex("""AIza[0-9A-Za-z_-]{20,}""")
+    private val querySecretRegex = Regex("""([?&](?:key|api_key|token|password)=)[^&\s"'<>]+""", RegexOption.IGNORE_CASE)
 
-    /** Scrub accidental coordinates or SSIDs from diagnostic text before persistence/export. */
+    /** Scrub accidental coordinates, SSIDs, passwords, and API keys from diagnostic text. */
     fun redact(text: String): String =
         text.replace(coordRegex, "[redacted-coord]")
             .replace(ssidRegex, "ssid=[redacted]")
+            .replace(passwordRegex, "password=[redacted]")
+            .replace(googleApiKeyRegex, "[redacted-api-key]")
+            .replace(querySecretRegex, "$1[redacted]")
 
     fun pendingCrashReport(context: Context): File? = runCatching {
         val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
