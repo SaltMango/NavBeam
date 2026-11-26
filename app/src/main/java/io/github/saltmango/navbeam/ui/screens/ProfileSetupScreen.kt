@@ -694,7 +694,7 @@ fun ProfileSetupScreen(
                         placeholder = {
                             Text(
                                 "{\n  \"id\": \"my_dash\",\n  ...\n}",
-                                color = colors.textDis,
+                                color = colors.textLo,
                                 fontFamily = GeistMonoFamily,
                                 fontSize = 11.5.sp
                             )

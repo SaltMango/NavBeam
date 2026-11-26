@@ -367,7 +367,7 @@ fun MenuScreen(
             Text(
                 text = when (themeMode) {
                     ThemeMode.Light -> "Light mode — bright high-contrast daytime interface"
-                    ThemeMode.Dark -> "Dark mode — OLED pure black for night riding"
+                    ThemeMode.Dark -> "Dark mode — deep dusk slate for low-glare night riding"
                     ThemeMode.System -> "System — automatically follows device theme"
                 },
                 color = colors.textLo,
@@ -486,7 +486,7 @@ fun MenuScreen(
         val appVersion = remember { UpdateChecker.currentVersionName(ctx) }
         Text(
             text = "NAVBEAM v$appVersion",
-            color = colors.textDis,
+            color = colors.textLo,
             style = NavBeamTheme.typography.monoSmall,
             modifier = Modifier
                 .align(Alignment.CenterHorizontally)

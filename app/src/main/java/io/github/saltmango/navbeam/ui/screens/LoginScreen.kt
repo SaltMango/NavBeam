@@ -26,12 +26,12 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.saltmango.navbeam.R
 import io.github.saltmango.navbeam.ui.NavBeamIcons
-import io.github.saltmango.navbeam.ui.components.NavBeamSegmentedControl
 import io.github.saltmango.navbeam.ui.theme.*
 import io.github.saltmango.navbeam.viewmodel.ThemeMode
 
@@ -59,20 +59,22 @@ fun LoginScreen(
                 .fillMaxSize()
                 .navigationBarsPadding()
                 .padding(horizontal = 22.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            Spacer(Modifier.weight(0.75f))
+
             // Brand & Hero
             Column(
-                modifier = Modifier.weight(1f).fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
             ) {
                 Image(
                     painter = painterResource(id = R.drawable.ic_navbeam_brand),
                     contentDescription = "NavBeam Brand Icon",
-                    modifier = Modifier.size(140.dp),
+                    modifier = Modifier.size(124.dp),
                 )
 
-                Spacer(Modifier.height(30.dp))
+                Spacer(Modifier.height(22.dp))
 
                 Text(
                     text = "NavBeam",
@@ -80,7 +82,7 @@ fun LoginScreen(
                     style = NavBeamTheme.typography.brand,
                 )
 
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(8.dp))
 
                 Text(
                     text = "Keep your screen off and your phone in your pocket.",
@@ -93,32 +95,66 @@ fun LoginScreen(
                 )
             }
 
-            // Rider Onboarding CTA & Theme Selector
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 28.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                NavBeamSegmentedControl(
-                    options = listOf("Light", "Dark", "System"),
-                    selected = when (themeMode) {
-                        ThemeMode.Light -> "Light"
-                        ThemeMode.Dark -> "Dark"
-                        ThemeMode.System -> "System"
-                    },
-                    onSelect = {
-                        val mode = when (it) {
-                            "Light" -> ThemeMode.Light
-                            "Dark" -> ThemeMode.Dark
-                            else -> ThemeMode.System
-                        }
-                        onThemeModeChange(mode)
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                )
+            Spacer(Modifier.weight(0.85f))
 
-                RiderGetStartedButton(onClick = onContinue)
+            // Compact Theme Selector centered slightly above midpoint between top text and bottom button
+            CompactThemeSelector(
+                themeMode = themeMode,
+                onThemeModeChange = onThemeModeChange,
+            )
+
+            Spacer(Modifier.weight(1.15f))
+
+            // Rider Onboarding CTA
+            RiderGetStartedButton(
+                onClick = onContinue,
+                modifier = Modifier.padding(bottom = 28.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun CompactThemeSelector(
+    themeMode: ThemeMode,
+    onThemeModeChange: (ThemeMode) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = NavBeamTheme.colors
+    val options = listOf(
+        ThemeMode.Light to "Light",
+        ThemeMode.Dark to "Dark",
+        ThemeMode.System to "System",
+    )
+    Row(
+        modifier = modifier
+            .width(210.dp)
+            .clip(CircleShape)
+            .background(colors.surf1)
+            .border(1.dp, colors.line, CircleShape)
+            .padding(2.5.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        options.forEach { (mode, label) ->
+            val active = mode == themeMode
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .weight(1f)
+                    .height(28.dp)
+                    .clip(CircleShape)
+                    .background(if (active) colors.primaryTint else Color.Transparent)
+                    .clickable { onThemeModeChange(mode) },
+            ) {
+                Text(
+                    text = label,
+                    color = if (active) colors.primary else colors.textLo,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    fontFamily = GeistFamily,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
         }
     }

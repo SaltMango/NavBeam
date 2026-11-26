@@ -49,14 +49,14 @@ val SecondaryTintLight       = Color(0x1C9A5100)
 val SecondaryTint2Light      = Color(0x309A5100)
 
 // ---- Surfaces & Neutrals (Dark Theme — Mountain Dusk Slate Ladder) ----
-val Bg0Dark                 = Color(0xFF080F16)
-val Bg1Dark                 = Color(0xFF0A131C) // BackgroundDark (L=0.183)
+val Bg0Dark                 = Color(0xFF060C12) // L=0.151
+val Bg1Dark                 = Color(0xFF081018) // BackgroundDark (L=0.169)
 val BackgroundDark          = Bg1Dark
-val Surf1Dark               = Color(0xFF0E1B26) // SurfaceDark / MountainDuskDark (L=0.216)
+val Surf1Dark               = Color(0xFF11202E) // SurfaceDark (L=0.237, 1.16:1 over Bg1Dark)
 val SurfaceDark             = Surf1Dark
-val Surf2Dark               = Color(0xFF1A2D3E) // SurfaceVariantDark (L=0.289)
+val Surf2Dark               = Color(0xFF1A2D3E) // SurfaceVariantDark (L=0.289, 1.17:1 over Surf1Dark)
 val SurfaceVariantDark      = Surf2Dark
-val Surf3Dark               = Color(0xFF22384C) // L=0.335
+val Surf3Dark               = Color(0xFF233A4F) // L=0.339 (1.20:1 over Surf2Dark)
 val OutlineDark             = Color(0xFF2E475D) // L=0.388
 
 // ---- Surfaces & Neutrals (Light Theme — Daytime Mist Slate Ladder) ----
@@ -69,7 +69,7 @@ val Surf2Light              = Color(0xFFE7EEF5) // L=0.945
 val Surf3Light              = Color(0xFFD9E4EF) // L=0.910
 
 // ---- Outlines & Hairlines ----
-val LineDark                = Color(0xFF22374A)
+val LineDark                = Color(0xFF253B50) // 1.43:1 hairline on Surf1Dark
 val Line2Dark               = OutlineDark       // #2E475D
 val Line3Dark               = Color(0xFF42607A)
 
@@ -82,9 +82,9 @@ val OnPrimary               = Color(0xFFFFFFFF)
 val OnSurface               = Color(0xFFF1F5F9)
 val OnSurfaceVariant        = Color(0xFF94A3B8)
 
-val TextHiDark              = OnSurface         // #F1F5F9 (15.93:1 on Surf1Dark)
-val TextMidDark             = OnSurfaceVariant  // #94A3B8 (6.81:1 on Surf1Dark, 5.50:1 on Surf2Dark)
-val TextLoDark              = Color(0xFF7E95AC) // 5.64:1 on Surf1Dark, 4.56:1 on Surf2Dark (AA)
+val TextHiDark              = OnSurface         // #F1F5F9 (15.10:1 on Surf1Dark)
+val TextMidDark             = OnSurfaceVariant  // #94A3B8 (6.45:1 on Surf1Dark, 5.50:1 on Surf2Dark)
+val TextLoDark              = Color(0xFF7E95AC) // 5.34:1 on Surf1Dark, 4.56:1 on Surf2Dark (AA)
 val TextDisDark             = Color(0xFF4B6278)
 
 val TextHiLight             = MountainDuskDark  // #0E1B26 (17.45:1 on White)
@@ -93,19 +93,19 @@ val TextLoLight             = Color(0xFF52687D) // 5.78:1 on White, 4.94:1 on Su
 val TextDisLight            = Color(0xFF8CA0B3)
 
 // ---- Semantic Status (OKLCH-harmonized, AA+ on all surfaces & chips) ----
-val SuccessDark             = Color(0xFF34D399) // 9.08:1 on Surf1Dark, 6.70:1 on 15% chip
+val SuccessDark             = Color(0xFF34D399) // 8.60:1 on Surf1Dark, 6.32:1 on 15% chip
 val SuccessLight            = Color(0xFF0F6B35) // 6.61:1 on White, 5.62:1 on 11% chip
 val SuccessTintDark         = Color(0x2634D399)
 val SuccessTintLight        = Color(0x1C0F6B35)
 
-val WarnDark                = NavBeamAmber      // #FFA63D (8.95:1 on Surf1Dark, 6.77:1 on 15% chip)
+val WarnDark                = NavBeamAmber      // #FFA63D (8.48:1 on Surf1Dark, 6.42:1 on 15% chip)
 val WarnLight               = Color(0xFF9A5100) // 5.91:1 on White, 5.06:1 on 11% chip
 val WarnTintDark            = Color(0x26FFA63D)
 val WarnTintLight           = Color(0x1C9A5100)
 
-val AlertDark               = Color(0xFFF87171) // 6.31:1 on Surf1Dark, 5.13:1 on 15% chip
+val AlertDark               = Color(0xFFFB8A8A) // L=0.756, C=0.137, H=20.8° (7.17:1 on Surf1Dark, 5.57:1 on Surf1 chip, 4.76:1 on Surf2 chip)
 val AlertLight              = Color(0xFFB91C1C) // 6.47:1 on White, 5.37:1 on 11% chip
-val AlertTintDark           = Color(0x26F87171)
+val AlertTintDark           = Color(0x26FB8A8A)
 val AlertTintLight          = Color(0x1CB91C1C)
 
 val OfflineDark             = Color(0xFF647B90)
