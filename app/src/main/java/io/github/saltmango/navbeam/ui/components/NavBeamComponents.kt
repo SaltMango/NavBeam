@@ -20,11 +20,13 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.ChevronLeft
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -771,107 +773,90 @@ fun NavBeamScreenHeader(
     modifier: Modifier = Modifier,
     title: String? = null,
     eyebrow: String? = null,
-    hint: String? = null,
     wordmark: Boolean = false,
     onBack: (() -> Unit)? = null,
-    trailing: @Composable (() -> Unit)? = null,
+    trailing: (@Composable RowScope.() -> Unit)? = null,
 ) {
     val colors = NavBeamTheme.colors
     Column(modifier = modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(colors.surf1),
-        ) {
-            TopAppBar(
-                title = {
-                    if (wordmark) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            Icon(
-                                painter = painterResource(id = R.drawable.ic_navbeam_brand),
-                                contentDescription = "NavBeam Logo",
-                                tint = Color.Unspecified,
-                                modifier = Modifier.size(24.dp),
-                            )
-                            Text(
-                                text = "NavBeam",
-                                color = colors.textHi,
-                                fontFamily = GeistMonoFamily,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 21.sp,
-                                letterSpacing = 0.14.sp,
-                            )
-                        }
-                    } else {
-                        Column {
-                            if (eyebrow != null) NavBeamEyebrow(eyebrow, Modifier.padding(bottom = 1.dp))
-                            if (title != null) {
-                                Text(
-                                    text = title,
-                                    color = colors.textHi,
-                                    style = NavBeamTheme.typography.screenTitle,
-                                )
-                            }
-                        }
-                    }
-                },
-                navigationIcon = {
-                    if (onBack != null) {
-                        NavBeamIconButton(
-                            icon = Icons.Outlined.ChevronLeft,
-                            onClick = onBack,
-                            modifier = Modifier.padding(end = 8.dp),
-                            contentDescription = "Back",
+        TopAppBar(
+            windowInsets = TopAppBarDefaults.windowInsets,
+            title = {
+                if (wordmark) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_navbeam_brand),
+                            contentDescription = "NavBeam Logo",
+                            tint = Color.Unspecified,
+                            modifier = Modifier.size(24.dp),
+                        )
+                        Text(
+                            text = "NavBeam",
+                            color = colors.textHi,
+                            fontFamily = GeistMonoFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 20.sp,
+                            letterSpacing = 0.14.sp,
+                            maxLines = 1,
                         )
                     }
-                },
-                actions = {
-                    if (trailing != null) {
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier.padding(end = 4.dp),
-                        ) {
-                            trailing()
+                } else {
+                    Column(verticalArrangement = Arrangement.Center) {
+                        if (eyebrow != null) {
+                            Text(
+                                text = eyebrow.uppercase(),
+                                color = colors.textLo,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                fontFamily = GeistMonoFamily,
+                                letterSpacing = 0.8.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                        if (title != null) {
+                            Text(
+                                text = title,
+                                color = colors.textHi,
+                                style = NavBeamTheme.typography.screenTitle,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
                         }
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = colors.surf1,
-                    titleContentColor = colors.textHi,
-                    navigationIconContentColor = colors.textHi,
-                    actionIconContentColor = colors.textHi,
-                ),
-            )
-            if (hint != null) {
-                Text(
-                    text = hint,
-                    color = colors.textLo,
-                    fontSize = 12.sp,
-                    fontFamily = GeistFamily,
-                    lineHeight = 15.sp,
-                    modifier = Modifier.padding(
-                        start = if (onBack != null) 60.dp else 16.dp,
-                        top = 2.dp,
-                        end = 16.dp,
-                        bottom = 8.dp,
-                    ),
-                )
-            }
-        }
-        // Subtle downward drop shadow
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(3.dp)
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(colors.shadow, Color.Transparent),
-                    ),
-                ),
+                }
+            },
+            navigationIcon = {
+                if (onBack != null) {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+                            contentDescription = "Back",
+                            tint = colors.textHi,
+                        )
+                    }
+                }
+            },
+            actions = {
+                if (trailing != null) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(end = 4.dp),
+                        content = trailing,
+                    )
+                }
+            },
+            colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = colors.surf1,
+                titleContentColor = colors.textHi,
+                navigationIconContentColor = colors.textHi,
+                actionIconContentColor = colors.textMid,
+            ),
         )
+        HorizontalDivider(thickness = 1.dp, color = colors.line)
     }
 }
 

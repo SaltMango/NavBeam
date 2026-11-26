@@ -14,7 +14,8 @@ object DashProfileJsonCodec {
     const val MAX_PROFILE_BYTES = 65536 // 64 KB size limit
 
     /**
-     * Reads a strict UTF-8 stream with a 64 KB size guard and parses it into a validated [DashProfile].
+     * Reads a strict UTF-8 stream (used for both `.json` and `.navbeam` profile files)
+     * with a 64 KB size guard and parses it into a validated [DashProfile].
      */
     fun fromStream(stream: InputStream): Result<DashProfile> = runCatching {
         val out = ByteArrayOutputStream()

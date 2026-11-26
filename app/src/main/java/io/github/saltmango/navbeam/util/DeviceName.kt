@@ -1,9 +1,12 @@
 package io.github.saltmango.navbeam.util
 
+import android.Manifest
 import android.bluetooth.BluetoothManager
 import android.content.Context
+import android.content.pm.PackageManager
 import android.os.Build
 import android.provider.Settings
+import androidx.core.content.ContextCompat
 
 /**
  * Utility to fetch the user-defined device name (e.g. "Sre's S25 Ultra").
@@ -14,8 +17,14 @@ object DeviceName {
         val resolver = context.contentResolver
 
         val btAdapterName = runCatching {
-            val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
-            bluetoothManager?.adapter?.name
+            val hasBtPermission = Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
+                ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
+            if (hasBtPermission) {
+                val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
+                bluetoothManager?.adapter?.name
+            } else {
+                null
+            }
         }.getOrNull()
 
         val secure = runCatching { Settings.Secure.getString(resolver, "bluetooth_name") }.getOrNull()

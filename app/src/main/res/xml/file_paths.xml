@@ -6,4 +6,6 @@
     <cache-path name="updates" path="updates/" />
     <!-- Exported local diagnostic zip bundles shared by the user for bug reports. -->
     <cache-path name="diag" path="diag/" />
+    <!-- Exported hardware profile files (.json / .zip) shared via FileProvider. -->
+    <cache-path name="profiles" path="profiles/" />
 </paths>

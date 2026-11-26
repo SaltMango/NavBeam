@@ -3,7 +3,6 @@ package io.github.saltmango.navbeam.ui.components
 import android.content.ClipboardManager
 import android.content.Context
 import android.net.Uri
-import android.provider.OpenableColumns
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -36,6 +35,7 @@ import io.github.saltmango.navbeam.dash.profile.DashProfile
 import io.github.saltmango.navbeam.dash.profile.DashProfileJsonCodec
 import io.github.saltmango.navbeam.dash.profile.DashProfileManager
 import io.github.saltmango.navbeam.dash.profile.DisplayShape
+import io.github.saltmango.navbeam.dash.profile.ProfileFileImporter
 import io.github.saltmango.navbeam.data.AuthPrefs
 import io.github.saltmango.navbeam.ui.NavBeamIcons
 import io.github.saltmango.navbeam.ui.theme.*
@@ -79,26 +79,15 @@ fun LoadProfileModal(
         importError = null
         scope.launch {
             val outcome = withContext(AppDispatchers.networking) {
-                runCatching {
-                    val (displayName, reportedSize) = queryModalUriMetadata(ctx, uri)
-                    if (reportedSize != null && reportedSize > DashProfileJsonCodec.MAX_PROFILE_BYTES) {
-                        throw SecurityException(
-                            "File is too large ($reportedSize bytes). Maximum allowed size is 64 KB."
-                        )
-                    }
-                    val parsed = ctx.contentResolver.openInputStream(uri)?.use { stream ->
-                        DashProfileJsonCodec.fromStream(stream).getOrThrow()
-                    } ?: throw IllegalStateException("Unable to open the selected file.")
-                    PendingModalProfileImport(
-                        profile = parsed,
-                        sourceLabel = displayName ?: "Selected .json file",
-                    )
-                }
+                ProfileFileImporter.importFromUri(ctx.contentResolver, uri)
             }
             isImporting = false
             outcome.onSuccess { imported ->
                 importError = null
-                pendingImport = imported
+                pendingImport = PendingModalProfileImport(
+                    profile = imported.profile,
+                    sourceLabel = imported.sourceLabel,
+                )
             }.onFailure { err ->
                 importError = err.message ?: "Failed to parse profile JSON."
             }
@@ -136,7 +125,7 @@ fun LoadProfileModal(
                         )
                         Spacer(Modifier.height(4.dp))
                         Text(
-                            text = "Upload a .json config file or paste the raw JSON for your display model.",
+                            text = "Upload a .navbeam or .json config file, or paste the raw JSON for your display model.",
                             color = colors.textMid,
                             fontSize = 13.sp,
                             lineHeight = 18.sp,
@@ -207,7 +196,7 @@ fun LoadProfileModal(
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     NavBeamButton(
-                        label = if (isImporting) "Reading…" else "Upload .json File",
+                        label = if (isImporting) "Reading…" else "Upload Profile File",
                         onClick = { importLauncher.launch(openDocumentMimeTypes) },
                         icon = NavBeamIcons.UploadFile,
                         variant = BtnVariant.Primary,
@@ -522,23 +511,4 @@ private fun ModalVerifySpecLine(label: String, value: String) {
             overflow = TextOverflow.Ellipsis,
         )
     }
-}
-
-private fun queryModalUriMetadata(ctx: Context, uri: Uri): Pair<String?, Long?> {
-    return runCatching {
-        ctx.contentResolver.query(
-            uri,
-            arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE),
-            null,
-            null,
-            null,
-        )?.use { cursor ->
-            if (!cursor.moveToFirst()) return@use null to null
-            val nameIdx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-            val sizeIdx = cursor.getColumnIndex(OpenableColumns.SIZE)
-            val name = if (nameIdx >= 0 && !cursor.isNull(nameIdx)) cursor.getString(nameIdx) else null
-            val size = if (sizeIdx >= 0 && !cursor.isNull(sizeIdx)) cursor.getLong(sizeIdx) else null
-            name to size
-        } ?: (null to null)
-    }.getOrDefault(null to null)
 }

@@ -320,4 +320,54 @@ class DashProfileJsonCodecTest {
         val wrongPortType = sampleJson.replace("\"controlTxPort\": 3000", "\"controlTxPort\": \"3000\"")
         assertTrue("String instead of integer port must fail", DashProfileJsonCodec.fromJson(wrongPortType).isFailure)
     }
+
+    @Test
+    fun navbeamStreamImport_parsesValidUtf8JsonWithSourceLabel() {
+        val original = DashProfileJsonCodec.fromJson(sampleJson).getOrThrow()
+        val navbeamBytes = DashProfileJsonCodec.toJson(original).toByteArray(Charsets.UTF_8)
+
+        val result = ProfileFileImporter.importFromStream(
+            stream = ByteArrayInputStream(navbeamBytes),
+            sourceLabel = "synthetic_dash.navbeam",
+            reportedSizeBytes = navbeamBytes.size.toLong(),
+        )
+        assertTrue("Valid .navbeam stream must succeed: ${result.exceptionOrNull()}", result.isSuccess)
+        val payload = result.getOrThrow()
+        assertEquals("synthetic_dash", payload.profile.id)
+        assertEquals("synthetic_dash.navbeam", payload.sourceLabel)
+    }
+
+    @Test
+    fun navbeamStreamImport_rejectsOversizedReportedMetadataBeforeReading() {
+        val result = ProfileFileImporter.importFromStream(
+            stream = ByteArrayInputStream(sampleJson.toByteArray(Charsets.UTF_8)),
+            sourceLabel = "huge.navbeam",
+            reportedSizeBytes = (DashProfileJsonCodec.MAX_PROFILE_BYTES + 1).toLong(),
+        )
+        assertTrue("Oversized metadata must fail", result.isFailure)
+        assertTrue(result.exceptionOrNull() is SecurityException)
+    }
+
+    @Test
+    fun navbeamStreamImport_rejectsOversizedStreamWithoutReportedSize() {
+        val oversized = ByteArray(DashProfileJsonCodec.MAX_PROFILE_BYTES + 1) { ' '.code.toByte() }
+        val result = ProfileFileImporter.importFromStream(
+            stream = ByteArrayInputStream(oversized),
+            sourceLabel = "spoofed_size.navbeam",
+            reportedSizeBytes = null,
+        )
+        assertTrue("Oversized stream must fail even when reported size is null", result.isFailure)
+        assertTrue(result.exceptionOrNull() is SecurityException)
+    }
+
+    @Test
+    fun navbeamStreamImport_rejectsBinaryPayloadWithInvalidUtf8() {
+        val invalidBytes = byteArrayOf(0xFF.toByte(), 0xFE.toByte(), 0x00, 0x01)
+        val result = ProfileFileImporter.importFromStream(
+            stream = ByteArrayInputStream(invalidBytes),
+            sourceLabel = "corrupt.navbeam",
+        )
+        assertTrue("Non-UTF8 binary payload must fail", result.isFailure)
+        assertTrue(result.exceptionOrNull() is SecurityException)
+    }
 }

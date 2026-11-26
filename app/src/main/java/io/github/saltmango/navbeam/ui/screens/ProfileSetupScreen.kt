@@ -7,7 +7,6 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
-import android.provider.OpenableColumns
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -40,18 +39,22 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import io.github.saltmango.navbeam.dash.profile.DashProfile
 import io.github.saltmango.navbeam.dash.profile.DashProfileJsonCodec
 import io.github.saltmango.navbeam.dash.profile.DashProfileManager
 import io.github.saltmango.navbeam.dash.profile.DisplayShape
+import io.github.saltmango.navbeam.dash.profile.ProfileFileImporter
 import io.github.saltmango.navbeam.ui.NavBeamIcons
 import io.github.saltmango.navbeam.ui.components.*
 import io.github.saltmango.navbeam.ui.theme.*
+import io.github.saltmango.navbeam.util.AppDispatchers
 import io.github.saltmango.navbeam.viewmodel.ConnStage
 import io.github.saltmango.navbeam.viewmodel.DashViewModel
-import kotlinx.coroutines.Dispatchers
+import io.github.saltmango.navbeam.viewmodel.IncomingProfileImportState
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 
 private const val COMMUNITY_GITHUB_URL = "https://github.com/SaltMango/NavBeam"
 private const val TEMPLATE_SCHEMA_URL = "https://github.com/SaltMango/NavBeam/blob/main/DashProfile.json"
@@ -68,6 +71,8 @@ fun ProfileSetupScreen(
     onSkip: (() -> Unit)? = null,
     isOnboarding: Boolean = false,
     dashViewModel: DashViewModel? = null,
+    incomingImportState: IncomingProfileImportState = IncomingProfileImportState.Idle,
+    onConsumeIncomingImport: () -> Unit = {},
 ) {
     val ctx = LocalContext.current
     val colors = NavBeamTheme.colors
@@ -84,8 +89,27 @@ fun ProfileSetupScreen(
     var pastedJson by remember { mutableStateOf("") }
     var pasteError by remember { mutableStateOf<String?>(null) }
 
-    // Use */* so OEM file pickers never grey out .json files; strict UTF-8 + 64KB + schema
-    // validation in DashProfileJsonCodec safely rejects non-JSON or malformed files.
+    LaunchedEffect(incomingImportState) {
+        when (incomingImportState) {
+            is IncomingProfileImportState.Ready -> {
+                importError = null
+                pendingImport = PendingProfileImport(
+                    profile = incomingImportState.profile,
+                    sourceLabel = incomingImportState.sourceLabel,
+                )
+                onConsumeIncomingImport()
+            }
+            is IncomingProfileImportState.Error -> {
+                importError = incomingImportState.message
+                onConsumeIncomingImport()
+            }
+            IncomingProfileImportState.Idle,
+            is IncomingProfileImportState.Loading -> Unit
+        }
+    }
+
+    // Use */* so OEM file pickers never grey out .navbeam or .json files; strict UTF-8 + 64KB +
+    // schema validation in DashProfileJsonCodec safely rejects non-JSON or malformed files.
     val openDocumentMimeTypes = remember { arrayOf("*/*") }
 
     val importLauncher = rememberLauncherForActivityResult(
@@ -95,51 +119,18 @@ fun ProfileSetupScreen(
         isImporting = true
         importError = null
         scope.launch {
-            val outcome = withContext(Dispatchers.IO) {
-                runCatching {
-                    val (displayName, reportedSize) = queryUriMetadata(ctx, uri)
-                    if (reportedSize != null && reportedSize > DashProfileJsonCodec.MAX_PROFILE_BYTES) {
-                        throw SecurityException(
-                            "File is too large ($reportedSize bytes). Maximum allowed size is 64 KB."
-                        )
-                    }
-                    val parsed = ctx.contentResolver.openInputStream(uri)?.use { stream ->
-                        DashProfileJsonCodec.fromStream(stream).getOrThrow()
-                    } ?: throw IllegalStateException("Unable to open the selected file.")
-                    PendingProfileImport(
-                        profile = parsed,
-                        sourceLabel = displayName ?: "Selected .json file",
-                    )
-                }
+            val outcome = withContext(AppDispatchers.networking) {
+                ProfileFileImporter.importFromUri(ctx.contentResolver, uri)
             }
             isImporting = false
             outcome.onSuccess { imported ->
                 importError = null
-                pendingImport = imported
+                pendingImport = PendingProfileImport(
+                    profile = imported.profile,
+                    sourceLabel = imported.sourceLabel,
+                )
             }.onFailure { err ->
                 importError = err.message ?: "Failed to parse profile JSON."
-            }
-        }
-    }
-
-    val exportLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.CreateDocument("application/json")
-    ) { uri: Uri? ->
-        if (uri == null || !activeProfile.isConfigured) return@rememberLauncherForActivityResult
-        val snapshot = activeProfile
-        scope.launch {
-            val result = withContext(Dispatchers.IO) {
-                runCatching {
-                    val json = DashProfileJsonCodec.toJson(snapshot)
-                    ctx.contentResolver.openOutputStream(uri)?.use { out ->
-                        out.write(json.toByteArray(Charsets.UTF_8))
-                    } ?: throw IllegalStateException("Unable to write destination file.")
-                }
-            }
-            result.onSuccess {
-                Toast.makeText(ctx, "Exported '${snapshot.name}'", Toast.LENGTH_SHORT).show()
-            }.onFailure { err ->
-                Toast.makeText(ctx, "Export failed: ${err.message}", Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -194,6 +185,42 @@ fun ProfileSetupScreen(
         }
     }
 
+    fun shareActiveProfile() {
+        if (!activeProfile.isConfigured) return
+        val snapshot = activeProfile
+        scope.launch {
+            val result = withContext(AppDispatchers.networking) {
+                runCatching {
+                    val exportDir = File(ctx.cacheDir, "profiles").apply { mkdirs() }
+                    exportDir.listFiles()?.forEach { runCatching { it.delete() } }
+                    val safeId = snapshot.id.replace(Regex("[^a-zA-Z0-9_-]"), "_").ifBlank { "profile" }
+                    val outFile = File(exportDir, "$safeId.navbeam")
+                    outFile.writeText(DashProfileJsonCodec.toJson(snapshot), Charsets.UTF_8)
+                    FileProvider.getUriForFile(ctx, "${ctx.packageName}.fileprovider", outFile)
+                }
+            }
+            result.onSuccess { uri ->
+                val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                    type = "*/*"
+                    putExtra(Intent.EXTRA_STREAM, uri)
+                    putExtra(Intent.EXTRA_SUBJECT, "NavBeam Hardware Profile: ${snapshot.name}")
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                val chooser = Intent.createChooser(sendIntent, "Share ${snapshot.name}")
+                runCatching {
+                    ctx.startActivity(chooser)
+                }.onFailure {
+                    Toast.makeText(ctx, "No app available to share file.", Toast.LENGTH_SHORT).show()
+                }
+            }.onFailure { err ->
+                Toast.makeText(ctx, "Share failed: ${err.message}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    val showBottomCta = isOnboarding || onBack == null
+    val readingExternalFile = incomingImportState is IncomingProfileImportState.Loading
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -202,19 +229,14 @@ fun ProfileSetupScreen(
         NavBeamScreenHeader(
             eyebrow = if (isOnboarding) "Setup" else "Configuration",
             title = "Hardware Profile",
-            hint = "Import your motorcycle display's .json profile.",
             onBack = onBack,
             trailing = {
                 if (activeProfile.isConfigured) {
-                    IconButton(
-                        onClick = { exportLauncher.launch("${activeProfile.id}.json") },
-                        modifier = Modifier.size(38.dp)
-                    ) {
+                    IconButton(onClick = { shareActiveProfile() }) {
                         Icon(
                             imageVector = NavBeamIcons.Share,
-                            contentDescription = "Export active profile",
+                            contentDescription = "Share active profile",
                             tint = colors.textMid,
-                            modifier = Modifier.size(19.dp)
                         )
                     }
                 }
@@ -231,8 +253,9 @@ fun ProfileSetupScreen(
                     .fillMaxWidth()
                     .heightIn(min = maxHeight)
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp, vertical = 22.dp),
-                verticalArrangement = Arrangement.spacedBy(24.dp)
+                    .then(if (showBottomCta) Modifier else Modifier.navigationBarsPadding())
+                    .padding(horizontal = 16.dp, vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
             // 1. Hero Card: Active Profile Telemetry OR Friendly Empty Status + Plain Instructions
             if (activeProfile.isConfigured) {
@@ -240,7 +263,7 @@ fun ProfileSetupScreen(
             } else {
                 EmptyProfileHeroCard()
                 Text(
-                    text = "To connect your phone to your bike's screen, upload or paste the .json config file for your display model.",
+                    text = "To connect your phone to your bike's screen, upload or paste the .navbeam or .json config file for your display model.",
                     color = colors.textHi,
                     fontSize = 16.sp,
                     lineHeight = 23.sp,
@@ -249,102 +272,129 @@ fun ProfileSetupScreen(
                 )
             }
 
-            // 2. Import Actions (Upload .json file or Paste JSON + inline error banner)
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
+            if (readingExternalFile) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 2.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(colors.surf2)
+                        .border(1.dp, colors.line, RoundedCornerShape(12.dp))
+                        .padding(14.dp)
                 ) {
-                    NavBeamEyebrow(text = "Add Config File")
-                    if (isImporting) {
-                        CircularProgressIndicator(
-                            color = colors.primary,
-                            strokeWidth = 2.dp,
-                            modifier = Modifier.size(18.dp)
+                    CircularProgressIndicator(
+                        color = colors.primary,
+                        strokeWidth = 2.dp,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Text(
+                        text = "Reading profile file…",
+                        color = colors.textHi,
+                        fontSize = 13.5.sp,
+                        fontFamily = GeistFamily
+                    )
+                }
+            }
+
+            if (importError != null) {
+                Row(
+                    verticalAlignment = Alignment.Top,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(colors.alertTint)
+                        .border(1.dp, colors.alert.copy(alpha = 0.35f), RoundedCornerShape(12.dp))
+                        .padding(14.dp)
+                ) {
+                    Icon(
+                        imageVector = NavBeamIcons.ErrorOutline,
+                        contentDescription = null,
+                        tint = colors.alert,
+                        modifier = Modifier
+                            .padding(top = 1.dp)
+                            .size(18.dp)
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Invalid Profile",
+                            color = colors.alert,
+                            fontSize = 12.5.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            fontFamily = GeistFamily
+                        )
+                        Text(
+                            text = importError ?: "",
+                            color = colors.textHi,
+                            fontSize = 12.sp,
+                            lineHeight = 16.5.sp,
+                            modifier = Modifier.padding(top = 2.dp)
                         )
                     }
-                }
-
-                if (importError != null) {
-                    Row(
-                        verticalAlignment = Alignment.Top,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(colors.alertTint)
-                            .border(1.dp, colors.alert.copy(alpha = 0.35f), RoundedCornerShape(12.dp))
-                            .padding(14.dp)
+                    IconButton(
+                        onClick = { importError = null },
+                        modifier = Modifier.size(24.dp)
                     ) {
                         Icon(
-                            imageVector = NavBeamIcons.ErrorOutline,
-                            contentDescription = null,
-                            tint = colors.alert,
-                            modifier = Modifier
-                                .padding(top = 1.dp)
-                                .size(18.dp)
+                            imageVector = NavBeamIcons.X,
+                            contentDescription = "Dismiss error",
+                            tint = colors.textMid,
+                            modifier = Modifier.size(15.dp)
                         )
-                        Spacer(Modifier.width(10.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Invalid Profile",
-                                color = colors.alert,
-                                fontSize = 12.5.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                fontFamily = GeistFamily
-                            )
-                            Text(
-                                text = importError ?: "",
-                                color = colors.textHi,
-                                fontSize = 12.sp,
-                                lineHeight = 16.5.sp,
-                                modifier = Modifier.padding(top = 2.dp)
-                            )
-                        }
-                        IconButton(
-                            onClick = { importError = null },
-                            modifier = Modifier.size(24.dp)
-                        ) {
-                            Icon(
-                                imageVector = NavBeamIcons.X,
-                                contentDescription = "Dismiss error",
-                                tint = colors.textMid,
-                                modifier = Modifier.size(15.dp)
+                    }
+                }
+            }
+
+            // 2. Import Actions (only shown when no profile exists yet)
+            if (availableProfiles.isEmpty() && !activeProfile.isConfigured) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 2.dp)
+                    ) {
+                        NavBeamEyebrow(text = "Add Config File")
+                        if (isImporting) {
+                            CircularProgressIndicator(
+                                color = colors.primary,
+                                strokeWidth = 2.dp,
+                                modifier = Modifier.size(18.dp)
                             )
                         }
                     }
-                }
 
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    NavBeamButton(
-                        label = if (isImporting) "Reading…" else "Upload .json",
-                        onClick = { importLauncher.launch(openDocumentMimeTypes) },
-                        icon = NavBeamIcons.UploadFile,
-                        variant = BtnVariant.Primary,
-                        size = BtnSize.Lg,
-                        enabled = !isImporting,
-                        modifier = Modifier.weight(1f)
-                    )
-                    NavBeamButton(
-                        label = "Paste JSON",
-                        onClick = {
-                            pasteError = null
-                            showPasteDialog = true
-                        },
-                        icon = NavBeamIcons.Paste,
-                        variant = BtnVariant.Secondary,
-                        size = BtnSize.Lg,
-                        enabled = !isImporting,
-                        modifier = Modifier.weight(1f)
-                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        NavBeamButton(
+                            label = if (isImporting) "Reading…" else "Upload File",
+                            onClick = { importLauncher.launch(openDocumentMimeTypes) },
+                            icon = NavBeamIcons.UploadFile,
+                            variant = BtnVariant.Primary,
+                            size = BtnSize.Lg,
+                            enabled = !isImporting,
+                            modifier = Modifier.weight(1f)
+                        )
+                        NavBeamButton(
+                            label = "Paste JSON",
+                            onClick = {
+                                pasteError = null
+                                showPasteDialog = true
+                            },
+                            icon = NavBeamIcons.Paste,
+                            variant = BtnVariant.Secondary,
+                            size = BtnSize.Lg,
+                            enabled = !isImporting,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
                 }
             }
 
@@ -546,53 +596,55 @@ fun ProfileSetupScreen(
             }
         }
 
-        // Bottom Sticky CTA
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(colors.surf1)
-                .navigationBarsPadding()
-        ) {
-            NavBeamDivider()
+        // Bottom Sticky CTA (only shown during onboarding or when no header back action is present)
+        if (showBottomCta) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                    .background(colors.surf1)
+                    .navigationBarsPadding()
             ) {
-                val hasProfile = activeProfile.isConfigured
-                if (!hasProfile && isOnboarding && onSkip != null) {
-                    NavBeamButton(
-                        label = "Skip for now",
-                        onClick = onSkip,
-                        variant = BtnVariant.Secondary,
-                        size = BtnSize.Lg,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Text(
-                        text = "You can add one later in Menu → Hardware Profile.",
-                        color = colors.textMid,
-                        fontSize = 13.sp,
-                        fontFamily = GeistFamily,
-                        modifier = Modifier.align(Alignment.CenterHorizontally)
-                    )
-                } else {
-                    val ctaLabel = when {
-                        !hasProfile -> "Upload a Profile to Continue"
-                        !isOnboarding -> "Done"
-                        allPermissionsGranted -> "Continue to NavBeam"
-                        else -> "Continue & Grant Permissions"
+                NavBeamDivider()
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    val hasProfile = activeProfile.isConfigured
+                    if (!hasProfile && isOnboarding && onSkip != null) {
+                        NavBeamButton(
+                            label = "Skip for now",
+                            onClick = onSkip,
+                            variant = BtnVariant.Secondary,
+                            size = BtnSize.Lg,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Text(
+                            text = "You can add one later in Menu → Hardware Profile.",
+                            color = colors.textMid,
+                            fontSize = 13.sp,
+                            fontFamily = GeistFamily,
+                            modifier = Modifier.align(Alignment.CenterHorizontally)
+                        )
+                    } else {
+                        val ctaLabel = when {
+                            !hasProfile -> "Upload a Profile to Continue"
+                            !isOnboarding -> "Done"
+                            allPermissionsGranted -> "Continue to NavBeam"
+                            else -> "Continue & Grant Permissions"
+                        }
+                        NavBeamButton(
+                            label = ctaLabel,
+                            onClick = { handleContinue() },
+                            enabled = hasProfile,
+                            variant = if (hasProfile) BtnVariant.Primary else BtnVariant.Secondary,
+                            size = BtnSize.Lg,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .alpha(if (hasProfile) 1f else 0.55f)
+                        )
                     }
-                    NavBeamButton(
-                        label = ctaLabel,
-                        onClick = { handleContinue() },
-                        enabled = hasProfile,
-                        variant = if (hasProfile) BtnVariant.Primary else BtnVariant.Secondary,
-                        size = BtnSize.Lg,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .alpha(if (hasProfile) 1f else 0.55f)
-                    )
                 }
             }
         }
@@ -689,7 +741,7 @@ fun ProfileSetupScreen(
                     onClick = {
                         val raw = pastedJson
                         scope.launch {
-                            val result = withContext(Dispatchers.IO) {
+                            val result = withContext(AppDispatchers.networking) {
                                 DashProfileJsonCodec.fromJson(raw)
                             }
                             result.onSuccess { parsed ->
@@ -1050,9 +1102,9 @@ private fun ActiveProfileHeroCard(profile: DashProfile) {
                     modifier = Modifier.weight(1f)
                 )
                 SpecTile(
-                    label = "CONTROLS",
-                    value = "${profile.maneuvers.size} icons",
-                    sub = "${profile.inputs.size} button actions",
+                    label = "FIRMWARE",
+                    value = if (profile.firmwareVersion.isNotBlank()) "v${profile.firmwareVersion}" else "Unspecified",
+                    sub = "Schema v${profile.version}",
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -1135,23 +1187,4 @@ private fun VerifySpecLine(label: String, value: String) {
             overflow = TextOverflow.Ellipsis
         )
     }
-}
-
-private fun queryUriMetadata(ctx: Context, uri: Uri): Pair<String?, Long?> {
-    return runCatching {
-        ctx.contentResolver.query(
-            uri,
-            arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE),
-            null,
-            null,
-            null
-        )?.use { cursor ->
-            if (!cursor.moveToFirst()) return@use null to null
-            val nameIdx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-            val sizeIdx = cursor.getColumnIndex(OpenableColumns.SIZE)
-            val name = if (nameIdx >= 0 && !cursor.isNull(nameIdx)) cursor.getString(nameIdx) else null
-            val size = if (sizeIdx >= 0 && !cursor.isNull(sizeIdx)) cursor.getLong(sizeIdx) else null
-            name to size
-        } ?: (null to null)
-    }.getOrDefault(null to null)
 }

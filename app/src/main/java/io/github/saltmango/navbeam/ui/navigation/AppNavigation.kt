@@ -19,7 +19,6 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Directions
@@ -54,6 +53,7 @@ import io.github.saltmango.navbeam.ui.theme.*
 import io.github.saltmango.navbeam.viewmodel.AppViewModel
 import io.github.saltmango.navbeam.viewmodel.ConnStage
 import io.github.saltmango.navbeam.viewmodel.DashViewModel
+import io.github.saltmango.navbeam.viewmodel.IncomingProfileImportState
 import io.github.saltmango.navbeam.viewmodel.RouteViewModel
 import io.github.saltmango.navbeam.viewmodel.RidesViewModel
 
@@ -86,14 +86,6 @@ fun AppNavigation(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
     val ctx = androidx.compose.ui.platform.LocalContext.current
-    val activity = remember(ctx) {
-        var context = ctx
-        while (context is android.content.ContextWrapper) {
-            if (context is android.app.Activity) break
-            context = context.baseContext
-        }
-        context as? android.app.Activity
-    }
 
     // Analytics screen_view per destination
     LaunchedEffect(currentRoute) {
@@ -123,6 +115,7 @@ fun AppNavigation(
     )
     val routeState by routeViewModel.state.collectAsState()
     val themeMode by appViewModel.themeMode.collectAsState()
+    val incomingProfileImport by appViewModel.incomingProfileImport.collectAsState()
 
     val dashUiState = dashViewModel.ui.collectAsState()
     val conn by remember {
@@ -151,32 +144,23 @@ fun AppNavigation(
         }
     }
 
+    // Auto-navigate to Hardware Profile when a .navbeam/.json file is opened externally
+    LaunchedEffect(incomingProfileImport, currentRoute) {
+        if (incomingProfileImport !is IncomingProfileImportState.Idle &&
+            currentRoute != null &&
+            currentRoute != Screen.ProfileSetup.route
+        ) {
+            navController.navigate(Screen.ProfileSetup.route) { launchSingleTop = true }
+        }
+    }
+
     NavBeamTheme(mode = themeMode) {
         val colors = NavBeamTheme.colors
 
-        LaunchedEffect(currentRoute, colors, activity) {
-            activity?.window?.let { window ->
-                val isTransparentScreen = currentRoute in listOf(Screen.Route.route, Screen.Dash.route)
-                @Suppress("DEPRECATION")
-                window.statusBarColor = if (isTransparentScreen) {
-                    android.graphics.Color.TRANSPARENT
-                } else {
-                    colors.surf1.toArgb()
-                }
-            }
-        }
-
-        val applyStatusBarPadding = currentRoute !in listOf(Screen.Route.route, Screen.Dash.route)
-        val statusBarBg = if (applyStatusBarPadding && currentRoute != Screen.Login.route) {
-            colors.surf1
-        } else {
-            colors.bg1
-        }
         Column(
             Modifier
                 .fillMaxSize()
-                .background(statusBarBg)
-                .then(if (applyStatusBarPadding) Modifier.statusBarsPadding() else Modifier)
+                .background(colors.bg1)
         ) {
             Box(
                 Modifier
@@ -252,7 +236,9 @@ fun AppNavigation(
 
                     composable(Screen.ProfileSetup.route) {
                         val prevRoute = navController.previousBackStackEntry?.destination?.route
-                        val isFromApp = prevRoute in listOf(Screen.Menu.route, Screen.Home.route)
+                        val isFromApp = io.github.saltmango.navbeam.data.AuthPrefs.isOnboarded(ctx) &&
+                            prevRoute != null &&
+                            prevRoute != Screen.Login.route
                         ProfileSetupScreen(
                             onComplete = {
                                 io.github.saltmango.navbeam.data.AuthPrefs.setOnboarded(ctx, true)
@@ -275,6 +261,8 @@ fun AppNavigation(
                             } else null,
                             isOnboarding = !isFromApp,
                             dashViewModel = dashViewModel,
+                            incomingImportState = incomingProfileImport,
+                            onConsumeIncomingImport = { appViewModel.clearIncomingProfileImport() },
                         )
                     }
 

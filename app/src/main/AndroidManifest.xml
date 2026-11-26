@@ -70,11 +70,13 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- Receive "Share" from Google Maps -->
+            <!-- Receive "Share" from Google Maps or shared .navbeam/.json profile files -->
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="text/plain" />
+                <data android:mimeType="application/json" />
+                <data android:mimeType="application/octet-stream" />
             </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
@@ -83,6 +85,32 @@
                 <data android:scheme="https" android:host="maps.google.com" />
                 <data android:scheme="https" android:host="goo.gl" />
                 <data android:scheme="geo" />
+            </intent-filter>
+            <!-- Open .navbeam profile files directly via Files, Downloads, Mail, Telegram, WhatsApp -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:host="*" />
+                <data android:mimeType="*/*" />
+                <data android:pathPattern=".*\\.navbeam" />
+                <data android:pathPattern=".*\\..*\\.navbeam" />
+                <data android:pathPattern=".*\\..*\\..*\\.navbeam" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.navbeam" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:host="*" />
+                <data android:mimeType="*/*" />
+                <data android:pathPattern=".*\\.navbeam" />
+                <data android:pathPattern=".*\\..*\\.navbeam" />
+                <data android:pathPattern=".*\\..*\\..*\\.navbeam" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.navbeam" />
             </intent-filter>
         </activity>
 

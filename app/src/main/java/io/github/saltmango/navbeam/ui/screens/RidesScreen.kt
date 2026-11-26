@@ -45,12 +45,12 @@ fun RidesScreen(
     ridesViewModel: RidesViewModel = viewModel(),
 ) {
     val rides by ridesViewModel.rides.collectAsState()
+    val colors = NavBeamTheme.colors
 
     Column(modifier = Modifier.fillMaxSize()) {
         NavBeamScreenHeader(
             eyebrow = "Telemetry",
-            title = "Ride history",
-            hint = "Every connected ride is saved here — distance, duration, and the route you took.",
+            title = "Ride History",
             onBack = onBack,
         )
 
@@ -58,9 +58,16 @@ fun RidesScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 18.dp)
-                .padding(top = 8.dp, bottom = 24.dp),
+                .padding(horizontal = 16.dp, vertical = 16.dp),
         ) {
+            Text(
+                text = "Every connected ride is saved here — distance, duration, and the route you took.",
+                color = colors.textLo,
+                fontSize = 12.5.sp,
+                lineHeight = 18.sp,
+                fontFamily = GeistFamily,
+                modifier = Modifier.padding(bottom = 14.dp),
+            )
             if (rides.isEmpty()) {
                 NavBeamEmptyState(
                     icon = NavBeamIcons.Route,

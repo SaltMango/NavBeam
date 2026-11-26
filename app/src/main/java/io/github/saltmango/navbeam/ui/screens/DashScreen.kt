@@ -191,9 +191,12 @@ fun DashScreen(
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
             NavBeamScreenHeader(
-                title = "Dash view",
+                title = "Dash View",
                 trailing = {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
                         if (streaming && ui.gpsStatus != io.github.saltmango.navbeam.viewmodel.GpsStatus.GOOD) {
                             NavBeamChip(
                                 if (ui.gpsStatus == io.github.saltmango.navbeam.viewmodel.GpsStatus.LOST) "GPS lost" else "GPS weak",
@@ -209,7 +212,13 @@ fun DashScreen(
                             ConnStage.OFFLINE -> NavBeamChip("Offline", ChipTone.Off)
                             else -> {}
                         }
-                        NavBeamIconButton(icon = NavBeamIcons.Gear, onClick = { showQuickSettings = true }, size = 32.dp)
+                        androidx.compose.material3.IconButton(onClick = { showQuickSettings = true }) {
+                            Icon(
+                                imageVector = NavBeamIcons.Gear,
+                                contentDescription = "Dash settings",
+                                tint = colors.textMid,
+                            )
+                        }
                     }
                 },
             )
@@ -217,7 +226,7 @@ fun DashScreen(
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .padding(horizontal = 18.dp),
+                    .padding(horizontal = 16.dp),
             ) {
                 if (!streaming) {
                     NavBeamCard(

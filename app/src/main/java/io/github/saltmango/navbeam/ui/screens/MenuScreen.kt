@@ -93,14 +93,18 @@ fun MenuScreen(
         VoiceMode.FULL -> "Voice"
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(18.dp)
-            .padding(bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        NavBeamScreenHeader(title = "Menu")
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 16.dp)
+                .padding(bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
         // Rider Profile card
         NavBeamCard(
             modifier = Modifier.fillMaxWidth(),
@@ -505,6 +509,7 @@ fun MenuScreen(
                     }
                 },
         )
+        }
     }
 
     if (showQualityDialog) {
