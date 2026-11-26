@@ -60,7 +60,6 @@ import androidx.compose.ui.platform.LocalDensity
 fun RouteScreen(
     onBack: () -> Unit,
     onSentToDash: (String) -> Unit,
-    onSetupProfile: () -> Unit = {},
     routeViewModel: RouteViewModel = viewModel(),
     dashViewModel: DashViewModel = viewModel(),
 ) {
@@ -90,6 +89,7 @@ fun RouteScreen(
     var sent by remember { mutableStateOf(false) }
     var showSave by remember { mutableStateOf(false) }
     var showMissingProfileDialog by remember { mutableStateOf(false) }
+    var showLoadProfileModal by remember { mutableStateOf(false) }
     val activeProfile by io.github.saltmango.navbeam.dash.profile.DashProfileManager.activeProfile.collectAsState()
     var editing by remember { mutableStateOf<io.github.saltmango.navbeam.data.SavedLocation?>(null) }
 
@@ -1475,7 +1475,7 @@ fun RouteScreen(
                                         if (!activeProfile.isConfigured) {
                                             dashViewModel.disconnect()
                                             sent = false
-                                            onSetupProfile()
+                                            showLoadProfileModal = true
                                         } else {
                                             val wm = ctx.applicationContext.getSystemService(android.content.Context.WIFI_SERVICE) as android.net.wifi.WifiManager
                                             if (!wm.isWifiEnabled) {
@@ -1548,7 +1548,7 @@ fun RouteScreen(
                     androidx.compose.material3.TextButton(
                         onClick = {
                             showMissingProfileDialog = false
-                            onSetupProfile()
+                            showLoadProfileModal = true
                         }
                     ) {
                         Text("Load Profile", color = colors.primary, fontWeight = FontWeight.SemiBold)
@@ -1563,6 +1563,11 @@ fun RouteScreen(
                 },
             )
         }
+        LoadProfileModal(
+            visible = showLoadProfileModal,
+            onDismiss = { showLoadProfileModal = false },
+            dashViewModel = dashViewModel,
+        )
     } // close Box
 }
 

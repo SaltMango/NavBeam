@@ -184,6 +184,7 @@ fun HomeScreen(
     var hasMapsKey by remember { mutableStateOf(MapsKeyManager.getKey(ctx).isNotBlank()) }
     var showApiKeyDialog by remember { mutableStateOf(false) }
     var apiKeyValue by remember { mutableStateOf(androidx.compose.ui.text.input.TextFieldValue(SettingsPrefs.getMapsApiKey(ctx))) }
+    var showLoadProfileModal by remember { mutableStateOf(false) }
 
     // Keep settings synchronized when Home tab becomes active
     LaunchedEffect(Unit) {
@@ -223,7 +224,7 @@ fun HomeScreen(
         if (!activeProfile.isConfigured) {
             NoProfileHomeContent(
                 hasMapsKey = hasMapsKey,
-                onSetupProfile = { onNavigate("profile_setup") },
+                onSetupProfile = { showLoadProfileModal = true },
                 onOpenApiKeyDialog = { showApiKeyDialog = true },
                 onOpenExternalUrl = { url ->
                     runCatching {
@@ -923,6 +924,12 @@ fun HomeScreen(
             containerColor = colors.surf1,
         )
     }
+
+    LoadProfileModal(
+        visible = showLoadProfileModal,
+        onDismiss = { showLoadProfileModal = false },
+        dashViewModel = dashViewModel,
+    )
 }
 
 @Composable

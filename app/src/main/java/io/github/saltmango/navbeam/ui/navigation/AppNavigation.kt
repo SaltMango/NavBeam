@@ -252,7 +252,7 @@ fun AppNavigation(
 
                     composable(Screen.ProfileSetup.route) {
                         val prevRoute = navController.previousBackStackEntry?.destination?.route
-                        val isFromApp = prevRoute in listOf(Screen.Menu.route, Screen.Home.route, Screen.Route.route)
+                        val isFromApp = prevRoute in listOf(Screen.Menu.route, Screen.Home.route)
                         ProfileSetupScreen(
                             onComplete = {
                                 io.github.saltmango.navbeam.data.AuthPrefs.setOnboarded(ctx, true)
@@ -301,7 +301,6 @@ fun AppNavigation(
                             routeViewModel = routeViewModel,
                             dashViewModel = dashViewModel,
                             onBack = { navController.popBackStack() },
-                            onSetupProfile = { navController.navigate(Screen.ProfileSetup.route) },
                             onSentToDash = { destName ->
                                  dashViewModel.setDestination(
                                      name = destName,
