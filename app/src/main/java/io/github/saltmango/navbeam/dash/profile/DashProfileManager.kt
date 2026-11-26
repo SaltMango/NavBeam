@@ -14,6 +14,14 @@ data class DashProfileSummary(
     val name: String,
     val description: String,
     val firmwareVersion: String = "",
+    val width: Int = 0,
+    val height: Int = 0,
+    val shape: DisplayShape? = null,
+    val gatewayIp: String = "",
+    val ssidPrefix: String = "",
+    val authType: String = "",
+    val maneuverCount: Int = 0,
+    val inputCount: Int = 0,
 )
 
 object DashProfileManager {
@@ -56,7 +64,7 @@ object DashProfileManager {
         profilesMap.clear()
 
         // Load all profiles uploaded by the user to the sandbox directory
-        profilesDir.listFiles { f -> f.extension == "json" }?.forEach { file ->
+        profilesDir.listFiles { f -> f.isFile && f.extension == "json" }?.forEach { file ->
             runCatching {
                 file.inputStream().use { stream ->
                     DashProfileJsonCodec.fromStream(stream).onSuccess { profile ->
@@ -78,8 +86,16 @@ object DashProfileManager {
                 name = it.name,
                 description = it.description,
                 firmwareVersion = it.firmwareVersion,
+                width = it.display.width,
+                height = it.display.height,
+                shape = it.display.shape,
+                gatewayIp = it.network.gatewayIp,
+                ssidPrefix = it.network.defaultSsidPrefix,
+                authType = it.protocol.authType,
+                maneuverCount = it.maneuvers.size,
+                inputCount = it.inputs.size,
             )
-        }.sortedBy { it.name }
+        }.sortedBy { it.name.lowercase() }
     }
 
     @Synchronized
@@ -111,14 +127,27 @@ object DashProfileManager {
         }
 
         val targetFile = File(profilesDir, "$sanitizedId.json")
-        val canonicalPath = targetFile.canonicalPath
+        val tempFile = File(profilesDir, "$sanitizedId.json.tmp")
         val canonicalDir = profilesDir.canonicalPath
-        if (!canonicalPath.startsWith("$canonicalDir${File.separator}")) {
+        val canonicalPath = targetFile.canonicalPath
+        val canonicalTempPath = tempFile.canonicalPath
+        if (!canonicalPath.startsWith("$canonicalDir${File.separator}") ||
+            !canonicalTempPath.startsWith("$canonicalDir${File.separator}")
+        ) {
             throw SecurityException("Path traversal attempt in profile ID.")
         }
 
         val jsonContent = DashProfileJsonCodec.toJson(profile)
-        targetFile.writeText(jsonContent, Charsets.UTF_8)
+        try {
+            tempFile.writeText(jsonContent, Charsets.UTF_8)
+            if (!tempFile.renameTo(targetFile)) {
+                targetFile.writeText(jsonContent, Charsets.UTF_8)
+                tempFile.delete()
+            }
+        } catch (e: Throwable) {
+            tempFile.delete()
+            throw e
+        }
 
         reloadProfiles()
         selectProfile(profile.id)

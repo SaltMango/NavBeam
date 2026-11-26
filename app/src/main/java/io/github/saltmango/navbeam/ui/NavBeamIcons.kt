@@ -12,10 +12,13 @@ import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.ChevronLeft
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Code
+import androidx.compose.material.icons.outlined.ContentPaste
 import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Email
+import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.Flag
@@ -28,6 +31,7 @@ import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.MyLocation
 import androidx.compose.material.icons.outlined.Navigation
 import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.PowerSettingsNew
 import androidx.compose.material.icons.outlined.Remove
 import androidx.compose.material.icons.outlined.Route
@@ -43,6 +47,8 @@ import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material.icons.outlined.Thermostat
 import androidx.compose.material.icons.automirrored.outlined.TrendingUp
 import androidx.compose.material.icons.outlined.TwoWheeler
+import androidx.compose.material.icons.outlined.UploadFile
+import androidx.compose.material.icons.outlined.VerifiedUser
 import androidx.compose.material.icons.automirrored.outlined.VolumeOff
 import androidx.compose.material.icons.automirrored.outlined.VolumeUp
 import androidx.compose.material.icons.outlined.WaterDrop
@@ -105,6 +111,12 @@ object NavBeamIcons {
     val Zap           = Icons.Outlined.Bolt
     val Units         = Icons.Outlined.Straighten
     val Download      = Icons.Outlined.Download
+    val UploadFile    = Icons.Outlined.UploadFile
+    val Paste         = Icons.Outlined.ContentPaste
+    val Verified      = Icons.Outlined.VerifiedUser
+    val OpenInNew     = Icons.AutoMirrored.Outlined.OpenInNew
+    val Code          = Icons.Outlined.Code
+    val ErrorOutline  = Icons.Outlined.ErrorOutline
 
     // ---- Custom icons (SVG path → ImageVector) ----
     val Dash: ImageVector = pathVec(

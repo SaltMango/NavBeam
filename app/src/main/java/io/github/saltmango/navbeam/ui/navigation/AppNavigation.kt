@@ -111,7 +111,8 @@ fun AppNavigation(
     val startDest = remember {
         when {
             !io.github.saltmango.navbeam.data.AuthPrefs.isOnboarded(ctx) -> Screen.Login.route
-            !DashProfileManager.hasProfile() -> Screen.ProfileSetup.route
+            !DashProfileManager.hasProfile() && !io.github.saltmango.navbeam.data.AuthPrefs.isProfileSkipped(ctx) ->
+                Screen.ProfileSetup.route
             else -> Screen.Home.route
         }
     }
@@ -239,18 +240,29 @@ fun AppNavigation(
                     }
 
                     composable(Screen.ProfileSetup.route) {
-                        val cameFromMenu = navController.previousBackStackEntry?.destination?.route == Screen.Menu.route
+                        val prevRoute = navController.previousBackStackEntry?.destination?.route
+                        val isFromApp = prevRoute in listOf(Screen.Menu.route, Screen.Home.route)
                         ProfileSetupScreen(
                             onComplete = {
                                 io.github.saltmango.navbeam.data.AuthPrefs.setOnboarded(ctx, true)
+                                io.github.saltmango.navbeam.data.AuthPrefs.setProfileSkipped(ctx, false)
                                 navController.navigate(Screen.Home.route) {
                                     popUpTo(0) { inclusive = true }
                                 }
                             },
-                            onBack = if (cameFromMenu) {
+                            onBack = if (isFromApp) {
                                 { navController.popBackStack() }
                             } else null,
-                            isOnboarding = !cameFromMenu,
+                            onSkip = if (!isFromApp) {
+                                {
+                                    io.github.saltmango.navbeam.data.AuthPrefs.setOnboarded(ctx, true)
+                                    io.github.saltmango.navbeam.data.AuthPrefs.setProfileSkipped(ctx, true)
+                                    navController.navigate(Screen.Home.route) {
+                                        popUpTo(0) { inclusive = true }
+                                    }
+                                }
+                            } else null,
+                            isOnboarding = !isFromApp,
                             dashViewModel = dashViewModel,
                         )
                     }
@@ -264,6 +276,7 @@ fun AppNavigation(
                                     "dash" -> navigateTab(Screen.Dash.route)
                                     "rides" -> navController.navigate(Screen.Rides.route)
                                     "menu" -> navigateTab(Screen.Menu.route)
+                                    "profile_setup" -> navController.navigate(Screen.ProfileSetup.route)
                                 }
                             },
                             routeViewModel = routeViewModel,

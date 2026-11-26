@@ -75,6 +75,7 @@ fun HomeScreen(
 
 
     val dashUi by dashViewModel.ui.collectAsState()
+    val activeProfile by io.github.saltmango.navbeam.dash.profile.DashProfileManager.activeProfile.collectAsState()
 
     // Permissions gate for connecting to the dash
     val essentialPermissions = remember {
@@ -333,6 +334,58 @@ fun HomeScreen(
                                 modifier = Modifier.weight(1f)
                             )
                         }
+                    }
+                }
+            }
+
+            // Hardware Profile Missing Banner (if skipped during onboarding)
+            if (!activeProfile.isConfigured) {
+                navBeamCard(
+                    glow = true,
+                    padding = 14.dp,
+                    onClick = { onNavigate("profile_setup") },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .size(38.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(PrimaryTint)
+                        ) {
+                            Icon(
+                                imageVector = NavBeamIcons.Wrench,
+                                contentDescription = "Hardware Profile Required",
+                                tint = Primary,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                text = "HARDWARE PROFILE NEEDED",
+                                color = Primary,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = GeistMonoFamily,
+                                letterSpacing = 0.8.sp,
+                            )
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                text = "Tap to load your display's .json profile before connecting.",
+                                color = colors.textHi,
+                                fontSize = 13.5.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                fontFamily = GeistFamily,
+                            )
+                        }
+                        Icon(
+                            imageVector = NavBeamIcons.ChevronRight,
+                            contentDescription = null,
+                            tint = colors.textLo,
+                            modifier = Modifier.size(16.dp),
+                        )
                     }
                 }
             }

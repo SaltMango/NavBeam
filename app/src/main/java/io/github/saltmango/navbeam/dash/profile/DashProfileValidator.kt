@@ -3,6 +3,7 @@ package io.github.saltmango.navbeam.dash.profile
 object DashProfileValidator {
 
     private val ID_REGEX = Regex("^[a-z0-9_-]{1,32}$")
+    private val MANEUVER_KEY_REGEX = Regex("^[A-Za-z0-9_]{1,40}$")
     private val IP_REGEX = Regex("^(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})$")
     private val HEX_REGEX = Regex("^[0-9a-fA-F]+$")
     private val SUPPORTED_AUTH_TYPES = setOf("RSA_AES_256", "NONE")
@@ -25,15 +26,18 @@ object DashProfileValidator {
         require(ID_REGEX.matches(profile.id)) {
             "Profile ID '${profile.id}' is invalid. Must be 1-32 lowercase alphanumeric characters, dashes, or underscores."
         }
+        requireSafeText(profile.name, "name")
         require(profile.name.isNotBlank() && profile.name.length <= 40) {
             "Profile name must be 1-40 characters."
         }
         require(profile.version >= 1) {
             "Profile version must be >= 1."
         }
+        requireSafeText(profile.description, "description")
         require(profile.description.length <= 120) {
             "Profile description cannot exceed 120 characters."
         }
+        requireSafeText(profile.firmwareVersion, "firmwareVersion")
         require(profile.firmwareVersion.length <= 32) {
             "Firmware version cannot exceed 32 characters."
         }
@@ -45,7 +49,7 @@ object DashProfileValidator {
 
         require(profile.maneuvers.size <= 128) { "Maneuver map cannot exceed 128 entries." }
         for ((key, code) in profile.maneuvers) {
-            require(key.isNotBlank() && key.length <= 40) { "Maneuver key '$key' is invalid." }
+            require(MANEUVER_KEY_REGEX.matches(key)) { "Maneuver key '$key' is invalid." }
             require(code in 0..255) { "Maneuver code for '$key' must be between 0 and 255 (got $code)." }
         }
 
@@ -58,10 +62,25 @@ object DashProfileValidator {
         }
     }
 
-    private fun validateNetwork(network: NetworkConfig) {
-        require(network.defaultSsidPrefix.isNotBlank() && network.defaultSsidPrefix.length <= 32) {
-            "SSID prefix must be between 1 and 32 characters."
+    private fun requireSafeText(value: String, fieldName: String) {
+        for (ch in value) {
+            val isControl = ch.code < 0x20 || ch.code == 0x7F
+            val isBidiOrFormat = ch in '\u200B'..'\u200F' ||
+                ch in '\u202A'..'\u202E' ||
+                ch in '\u2066'..'\u2069' ||
+                ch == '\uFEFF'
+            if (isControl || isBidiOrFormat) {
+                throw SecurityException("Field '$fieldName' contains disallowed control or formatting characters.")
+            }
         }
+    }
+
+    private fun validateNetwork(network: NetworkConfig) {
+        requireSafeText(network.defaultSsidPrefix, "defaultSsidPrefix")
+        require(network.defaultSsidPrefix.isNotBlank() && network.defaultSsidPrefix.toByteArray(Charsets.UTF_8).size <= 32) {
+            "SSID prefix must be 1-32 UTF-8 bytes."
+        }
+        requireSafeText(network.defaultPassword, "defaultPassword")
         require(network.defaultPassword.length in 8..64) {
             "Wi-Fi password must be between 8 and 64 characters."
         }
@@ -92,10 +111,18 @@ object DashProfileValidator {
         val match = IP_REGEX.matchEntire(ip.trim())
             ?: throw SecurityException("Field '$fieldName' ($ip) is not a valid numeric IPv4 address.")
 
-        val o0 = match.groupValues[1].toInt()
-        val o1 = match.groupValues[2].toInt()
-        val o2 = match.groupValues[3].toInt()
-        val o3 = match.groupValues[4].toInt()
+        val s0 = match.groupValues[1]
+        val s1 = match.groupValues[2]
+        val s2 = match.groupValues[3]
+        val s3 = match.groupValues[4]
+        if (listOf(s0, s1, s2, s3).any { it.length > 1 && it.startsWith('0') }) {
+            throw SecurityException("Field '$fieldName' ($ip) cannot contain leading zeros in IPv4 octets.")
+        }
+
+        val o0 = s0.toInt()
+        val o1 = s1.toInt()
+        val o2 = s2.toInt()
+        val o3 = s3.toInt()
 
         require(o0 in 0..255 && o1 in 0..255 && o2 in 0..255 && o3 in 0..255) {
             "Field '$fieldName' ($ip) octets out of 0..255 range."

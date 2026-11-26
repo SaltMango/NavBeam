@@ -2,15 +2,19 @@ package io.github.saltmango.navbeam.dash.profile
 
 import org.json.JSONArray
 import org.json.JSONObject
+import org.json.JSONTokener
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
+import java.nio.ByteBuffer
+import java.nio.charset.CharacterCodingException
+import java.nio.charset.CodingErrorAction
 
 object DashProfileJsonCodec {
 
     const val MAX_PROFILE_BYTES = 65536 // 64 KB size limit
 
     /**
-     * Reads a UTF-8 stream with a strict 64 KB size guard and parses it into a validated [DashProfile].
+     * Reads a strict UTF-8 stream with a 64 KB size guard and parses it into a validated [DashProfile].
      */
     fun fromStream(stream: InputStream): Result<DashProfile> = runCatching {
         val out = ByteArrayOutputStream()
@@ -25,7 +29,15 @@ object DashProfileJsonCodec {
             }
             out.write(buffer, 0, read)
         }
-        val jsonStr = out.toString(Charsets.UTF_8.name())
+        val bytes = out.toByteArray()
+        val decoder = Charsets.UTF_8.newDecoder()
+            .onMalformedInput(CodingErrorAction.REPORT)
+            .onUnmappableCharacter(CodingErrorAction.REPORT)
+        val jsonStr = try {
+            decoder.decode(ByteBuffer.wrap(bytes)).toString()
+        } catch (_: CharacterCodingException) {
+            throw SecurityException("Selected file is not valid UTF-8 text.")
+        }
         fromJson(jsonStr).getOrThrow()
     }
 
@@ -37,62 +49,81 @@ object DashProfileJsonCodec {
         if (jsonStr.toByteArray(Charsets.UTF_8).size > MAX_PROFILE_BYTES) {
             throw SecurityException("Profile JSON string exceeds 64 KB size limit.")
         }
+        if (jsonStr.indexOf('\u0000') >= 0) {
+            throw SecurityException("Profile JSON contains invalid NUL bytes.")
+        }
 
-        val root = JSONObject(jsonStr)
+        val cleaned = jsonStr.removePrefix("\uFEFF").trim()
+        if (cleaned.isEmpty()) {
+            throw IllegalArgumentException("Profile JSON is empty.")
+        }
+        if (!cleaned.startsWith("{") || !cleaned.endsWith("}")) {
+            throw IllegalArgumentException("Profile must be a single JSON object starting with '{' and ending with '}'.")
+        }
 
-        val id = root.optNonNullString("id")
-        val name = root.optNonNullString("name")
-        val version = root.optInt("version", 0)
-        val firmwareVersion = root.optNonNullString("firmwareVersion")
+        val tokener = JSONTokener(cleaned)
+        val root = tokener.nextValue() as? JSONObject
+            ?: throw IllegalArgumentException("Profile root must be a JSON object.")
+        if (tokener.nextClean() != '\u0000') {
+            throw IllegalArgumentException("Unexpected trailing content after JSON object.")
+        }
+
+        val id = root.optNonNullString("id").trim()
+        val name = root.optNonNullString("name").trim()
+        val version = root.optStrictInt("version", 0)
+        val firmwareVersion = root.optNonNullString("firmwareVersion").trim()
         val description = root.optNonNullString("description")
+            .replace(Regex("[\\r\\n\\t]+"), " ")
+            .replace(Regex(" {2,}"), " ")
+            .trim()
 
         val netObj = root.optJSONObject("network")
             ?: throw IllegalArgumentException("Missing required 'network' section.")
         val network = NetworkConfig(
             defaultSsidPrefix = netObj.optNonNullString("defaultSsidPrefix"),
             defaultPassword = netObj.optNonNullString("defaultPassword"),
-            gatewayIp = netObj.optNonNullString("gatewayIp"),
-            broadcastIp = netObj.optNonNullString("broadcastIp").takeIf { it.isNotBlank() },
-            controlTxPort = netObj.optInt("controlTxPort", 0),
-            controlRxPort = netObj.optInt("controlRxPort", 0),
-            videoRtpPort = netObj.optInt("videoRtpPort", 0),
+            gatewayIp = netObj.optNonNullString("gatewayIp").trim(),
+            broadcastIp = netObj.optNonNullString("broadcastIp").trim().takeIf { it.isNotBlank() },
+            controlTxPort = netObj.optStrictInt("controlTxPort", 0),
+            controlRxPort = netObj.optStrictInt("controlRxPort", 0),
+            videoRtpPort = netObj.optStrictInt("videoRtpPort", 0),
         )
 
         val dispObj = root.optJSONObject("display")
             ?: throw IllegalArgumentException("Missing required 'display' section.")
         val display = DisplayConfig(
-            width = dispObj.optInt("width", 0),
-            height = dispObj.optInt("height", 0),
+            width = dispObj.optStrictInt("width", 0),
+            height = dispObj.optStrictInt("height", 0),
             shape = DisplayShape.fromString(dispObj.optNonNullString("shape").takeIf { it.isNotBlank() }),
-            frameDurationActiveMs = dispObj.optLong("frameDurationActiveMs", 0L),
-            frameDurationIdleMs = dispObj.optLong("frameDurationIdleMs", 0L),
-            motionHoldMs = dispObj.optLong("motionHoldMs", 0L),
-            activeBitrateBps = dispObj.optInt("activeBitrateBps", 0),
-            idleBitrateBps = dispObj.optInt("idleBitrateBps", 0),
-            h264Level = dispObj.optNonNullString("h264Level"),
+            frameDurationActiveMs = dispObj.optStrictLong("frameDurationActiveMs", 0L),
+            frameDurationIdleMs = dispObj.optStrictLong("frameDurationIdleMs", 0L),
+            motionHoldMs = dispObj.optStrictLong("motionHoldMs", 0L),
+            activeBitrateBps = dispObj.optStrictInt("activeBitrateBps", 0),
+            idleBitrateBps = dispObj.optStrictInt("idleBitrateBps", 0),
+            h264Level = dispObj.optNonNullString("h264Level").trim(),
             prependSpsPpsToIdr = dispObj.requireBoolean("prependSpsPpsToIdr"),
             forceSpsBaseline = dispObj.requireBoolean("forceSpsBaseline"),
             dropSeiAndAud = dispObj.requireBoolean("dropSeiAndAud"),
-            rtpMaxPayloadBytes = dispObj.optInt("rtpMaxPayloadBytes", 0),
-            rtpPayloadType = dispObj.optInt("rtpPayloadType", 0),
+            rtpMaxPayloadBytes = dispObj.optStrictInt("rtpMaxPayloadBytes", 0),
+            rtpPayloadType = dispObj.optStrictInt("rtpPayloadType", 0),
         )
 
         val protoObj = root.optJSONObject("protocol")
             ?: throw IllegalArgumentException("Missing required 'protocol' section.")
         val protocol = ProtocolConfig(
             magic = protoObj.optNonNullString("magic"),
-            fixedHeaderHex = protoObj.optNonNullString("fixedHeaderHex"),
-            incomingHeaderOffset = protoObj.optInt("incomingHeaderOffset", 0),
-            authType = protoObj.optNonNullString("authType"),
-            projKeepAliveMs = protoObj.optLong("projKeepAliveMs", 0L),
-            routeCardKeepAliveMs = protoObj.optLong("routeCardKeepAliveMs", 0L),
-            authTimeoutMs = protoObj.optLong("authTimeoutMs", 0L),
-            maxAuthAttempts = protoObj.optInt("maxAuthAttempts", 0),
-            burstPauseMs = protoObj.optLong("burstPauseMs", -1L),
-            rxWatchdogMs = protoObj.optLong("rxWatchdogMs", 0L),
-            rsaCiphertextBytes = protoObj.optInt("rsaCiphertextBytes", 0),
-            maxRouteTitleBytes = protoObj.optInt("maxRouteTitleBytes", 0),
-            maxMediaFieldChars = protoObj.optInt("maxMediaFieldChars", 0),
+            fixedHeaderHex = protoObj.optNonNullString("fixedHeaderHex").trim(),
+            incomingHeaderOffset = protoObj.optStrictInt("incomingHeaderOffset", 0),
+            authType = protoObj.optNonNullString("authType").trim(),
+            projKeepAliveMs = protoObj.optStrictLong("projKeepAliveMs", 0L),
+            routeCardKeepAliveMs = protoObj.optStrictLong("routeCardKeepAliveMs", 0L),
+            authTimeoutMs = protoObj.optStrictLong("authTimeoutMs", 0L),
+            maxAuthAttempts = protoObj.optStrictInt("maxAuthAttempts", 0),
+            burstPauseMs = protoObj.optStrictLong("burstPauseMs", -1L),
+            rxWatchdogMs = protoObj.optStrictLong("rxWatchdogMs", 0L),
+            rsaCiphertextBytes = protoObj.optStrictInt("rsaCiphertextBytes", 0),
+            maxRouteTitleBytes = protoObj.optStrictInt("maxRouteTitleBytes", 0),
+            maxMediaFieldChars = protoObj.optStrictInt("maxMediaFieldChars", 0),
         )
 
         val cmdObj = root.optJSONObject("commands")
@@ -100,14 +131,20 @@ object DashProfileJsonCodec {
         val commands = parseCommands(cmdObj)
 
         val inputs = mutableMapOf<String, Int>()
-        root.optJSONObject("inputs")?.let { inputObj ->
+        if (root.has("inputs") && !root.isNull("inputs")) {
+            val inputObj = root.optJSONObject("inputs")
+                ?: throw IllegalArgumentException("'inputs' must be a JSON object.")
+            require(inputObj.length() <= 50) { "Inputs map cannot exceed 50 entries." }
             for (key in inputObj.keys()) {
                 inputs[key] = parseHexOrInt(inputObj.get(key))
             }
         }
 
         val maneuvers = mutableMapOf<String, Int>()
-        root.optJSONObject("maneuvers")?.let { manObj ->
+        if (root.has("maneuvers") && !root.isNull("maneuvers")) {
+            val manObj = root.optJSONObject("maneuvers")
+                ?: throw IllegalArgumentException("'maneuvers' must be a JSON object.")
+            require(manObj.length() <= 128) { "Maneuver map cannot exceed 128 entries." }
             for (key in manObj.keys()) {
                 maneuvers[key] = parseHexOrInt(manObj.get(key))
             }
@@ -156,11 +193,14 @@ object DashProfileJsonCodec {
 
         val burstArr = cmd.optJSONArray("initialBurst")
             ?: throw IllegalArgumentException("Missing required 'commands.initialBurst' array.")
+        require(burstArr.length() <= 32) { "commands.initialBurst cannot exceed 32 packets." }
         val initialBurst = List(burstArr.length()) { pktIdx ->
             val pktArr = burstArr.optJSONArray(pktIdx)
                 ?: throw IllegalArgumentException("commands.initialBurst[$pktIdx] must be a JSON array.")
+            require(pktArr.length() <= 32) { "commands.initialBurst[$pktIdx] cannot exceed 32 entries." }
             List(pktArr.length()) { itemIdx ->
-                val raw = pktArr.getString(itemIdx).trim()
+                val raw = (pktArr.get(itemIdx) as? String
+                    ?: throw IllegalArgumentException("commands.initialBurst[$pktIdx][$itemIdx] must be a string.")).trim()
                 when (raw) {
                     "AUTH_REQUEST" -> BurstItem.AuthRequest
                     "HOSTNAME" -> BurstItem.Hostname
@@ -172,8 +212,10 @@ object DashProfileJsonCodec {
 
         val hbArr = cmd.optJSONArray("heartbeat")
             ?: throw IllegalArgumentException("Missing required 'commands.heartbeat' array.")
+        require(hbArr.length() in 1..32) { "commands.heartbeat must contain 1..32 entries." }
         val heartbeat = List(hbArr.length()) { idx ->
-            val raw = hbArr.getString(idx).trim()
+            val raw = (hbArr.get(idx) as? String
+                ?: throw IllegalArgumentException("commands.heartbeat[$idx] must be a string.")).trim()
             if (raw == "TEMP") HeartbeatItem.Temperature
             else HeartbeatItem.Static(parseTlvSpec(raw))
         }
@@ -197,8 +239,8 @@ object DashProfileJsonCodec {
             initialBurst = initialBurst,
             heartbeat = heartbeat,
             heartbeatTempTag = cmdParseTag(cmd, "heartbeatTempTag"),
-            heartbeatTempOffset = cmd.getInt("heartbeatTempOffset"),
-            heartbeatDefaultTempC = cmd.getInt("heartbeatDefaultTempC"),
+            heartbeatTempOffset = cmd.requireInt("heartbeatTempOffset"),
+            heartbeatDefaultTempC = cmd.requireInt("heartbeatDefaultTempC"),
             navContext = parseTlvSpecList(cmd, "navContext"),
             emptyLists = parseTlvSpecList(cmd, "emptyLists"),
             navStart = parseTlvSpecList(cmd, "navStart"),
@@ -372,21 +414,56 @@ object DashProfileJsonCodec {
     private fun tlvListToJson(list: List<TlvSpec>): JSONArray =
         JSONArray().apply { list.forEach { put(it.format()) } }
 
-    private fun JSONObject.optNonNullString(key: String, fallback: String = ""): String =
-        if (isNull(key)) fallback else optString(key, fallback)
+    private fun JSONObject.optNonNullString(key: String, fallback: String = ""): String {
+        if (!has(key) || isNull(key)) return fallback
+        return get(key) as? String
+            ?: throw IllegalArgumentException("Field '$key' must be a string.")
+    }
 
     private fun JSONObject.requireString(key: String): String {
         if (!has(key) || isNull(key)) {
             throw IllegalArgumentException("Missing required string field '$key'.")
         }
-        return getString(key)
+        return get(key) as? String
+            ?: throw IllegalArgumentException("Field '$key' must be a string.")
     }
 
     private fun JSONObject.requireBoolean(key: String): Boolean {
         if (!has(key) || isNull(key)) {
             throw IllegalArgumentException("Missing required boolean field '$key'.")
         }
-        return getBoolean(key)
+        return get(key) as? Boolean
+            ?: throw IllegalArgumentException("Field '$key' must be a boolean.")
+    }
+
+    private fun JSONObject.optStrictInt(key: String, fallback: Int): Int {
+        if (!has(key) || isNull(key)) return fallback
+        return when (val v = get(key)) {
+            is Int -> v
+            is Long -> {
+                if (v !in Int.MIN_VALUE..Int.MAX_VALUE) {
+                    throw IllegalArgumentException("Field '$key' integer out of range.")
+                }
+                v.toInt()
+            }
+            else -> throw IllegalArgumentException("Field '$key' must be an integer.")
+        }
+    }
+
+    private fun JSONObject.requireInt(key: String): Int {
+        if (!has(key) || isNull(key)) {
+            throw IllegalArgumentException("Missing required integer field '$key'.")
+        }
+        return optStrictInt(key, 0)
+    }
+
+    private fun JSONObject.optStrictLong(key: String, fallback: Long): Long {
+        if (!has(key) || isNull(key)) return fallback
+        return when (val v = get(key)) {
+            is Int -> v.toLong()
+            is Long -> v
+            else -> throw IllegalArgumentException("Field '$key' must be an integer.")
+        }
     }
 
     private fun cmdParseTag(obj: JSONObject, key: String): TlvTag =
@@ -402,7 +479,12 @@ object DashProfileJsonCodec {
     private fun parseTlvSpecList(obj: JSONObject, key: String): List<TlvSpec> {
         val arr = obj.optJSONArray(key)
             ?: throw IllegalArgumentException("Missing required TLV array '$key'.")
-        return List(arr.length()) { idx -> parseTlvSpec(arr.getString(idx)) }
+        require(arr.length() <= 32) { "TLV list '$key' cannot exceed 32 entries." }
+        return List(arr.length()) { idx ->
+            val raw = arr.get(idx) as? String
+                ?: throw IllegalArgumentException("TLV entry '$key[$idx]' must be a string.")
+            parseTlvSpec(raw)
+        }
     }
 
     private fun parseTlvTag(raw: String): TlvTag {
@@ -441,13 +523,25 @@ object DashProfileJsonCodec {
 
     private fun parseHexOrInt(value: Any): Int = when (value) {
         is Int -> value
-        is Long -> value.toInt()
+        is Long -> {
+            if (value !in Int.MIN_VALUE..Int.MAX_VALUE) {
+                throw IllegalArgumentException("Byte integer '$value' out of range.")
+            }
+            value.toInt()
+        }
         is String -> {
             val s = value.trim()
+            require(s.isNotEmpty()) { "Byte value cannot be empty." }
             if (s.startsWith("0x", ignoreCase = true)) {
-                s.substring(2).toInt(16)
+                val hex = s.substring(2)
+                require(hex.isNotEmpty() && hex.all { it in '0'..'9' || it in 'a'..'f' || it in 'A'..'F' }) {
+                    "Invalid hex byte '$s'."
+                }
+                hex.toInt(16)
             } else {
-                s.toIntOrNull() ?: s.toInt(16)
+                s.toIntOrNull()
+                    ?: s.takeIf { it.all { ch -> ch in '0'..'9' || ch in 'a'..'f' || ch in 'A'..'F' } }?.toIntOrNull(16)
+                    ?: throw IllegalArgumentException("Cannot parse '$s' into byte integer.")
             }
         }
         else -> throw IllegalArgumentException("Cannot parse '$value' into byte integer.")

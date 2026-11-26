@@ -11,6 +11,7 @@ import android.content.Context
 object AuthPrefs {
     private const val PREFS = "auth_prefs"
     private const val KEY_ONBOARDED = "onboarded"
+    private const val KEY_PROFILE_SKIPPED = "profile_skipped"
 
     private fun prefs(context: Context) =
         context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -21,5 +22,13 @@ object AuthPrefs {
 
     fun setOnboarded(context: Context, value: Boolean) {
         prefs(context).edit().putBoolean(KEY_ONBOARDED, value).apply()
+    }
+
+    /** True if the rider explicitly skipped hardware profile setup during onboarding. */
+    fun isProfileSkipped(context: Context): Boolean =
+        prefs(context).getBoolean(KEY_PROFILE_SKIPPED, false)
+
+    fun setProfileSkipped(context: Context, value: Boolean) {
+        prefs(context).edit().putBoolean(KEY_PROFILE_SKIPPED, value).apply()
     }
 }

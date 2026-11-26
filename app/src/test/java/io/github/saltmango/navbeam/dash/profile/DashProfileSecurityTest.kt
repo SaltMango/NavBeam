@@ -263,4 +263,50 @@ class DashProfileSecurityTest {
         val unknownAction = validProfile().copy(inputs = mapOf("unknownAction" to 1))
         assertTrue("Unknown action name must be rejected", runCatching { DashProfileValidator.validate(unknownAction) }.isFailure)
     }
+
+    @Test
+    fun rejectsNonUtf8BinaryStream() {
+        val binaryBytes = byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0xFF.toByte(), 0xFE.toByte())
+        val result = DashProfileJsonCodec.fromStream(ByteArrayInputStream(binaryBytes))
+        assertTrue("Invalid UTF-8 binary stream must be rejected", result.isFailure)
+        assertTrue(result.exceptionOrNull() is SecurityException)
+    }
+
+    @Test
+    fun rejectsNulControlAndBidiCharacters() {
+        val withControl = validProfile().copy(name = "Evil\nDash")
+        assertTrue(
+            "Control chars in name must be rejected",
+            runCatching { DashProfileValidator.validate(withControl) }.exceptionOrNull() is SecurityException
+        )
+
+        val withBidi = validProfile().copy(description = "Safe \u202Espoofed")
+        assertTrue(
+            "Unicode bidi override must be rejected",
+            runCatching { DashProfileValidator.validate(withBidi) }.exceptionOrNull() is SecurityException
+        )
+
+        val withNulJson = "{\"id\":\"a\",\"\u0000\":\"b\"}"
+        val nulResult = DashProfileJsonCodec.fromJson(withNulJson)
+        assertTrue(nulResult.exceptionOrNull() is SecurityException)
+    }
+
+    @Test
+    fun rejectsLeadingZeroOctetsAndOversizedSsidUtf8() {
+        val octalIp = validProfile().copy(
+            network = validProfile().network.copy(gatewayIp = "010.0.0.1")
+        )
+        assertTrue(
+            "Leading-zero IPv4 octet must be rejected",
+            runCatching { DashProfileValidator.validate(octalIp) }.exceptionOrNull() is SecurityException
+        )
+
+        val utf8Ssid = validProfile().copy(
+            network = validProfile().network.copy(defaultSsidPrefix = "🔥".repeat(9)) // 36 UTF-8 bytes
+        )
+        assertTrue(
+            "SSID > 32 UTF-8 bytes must be rejected",
+            runCatching { DashProfileValidator.validate(utf8Ssid) }.isFailure
+        )
+    }
 }

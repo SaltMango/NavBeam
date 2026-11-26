@@ -300,4 +300,24 @@ class DashProfileJsonCodecTest {
         assertEquals("template_profile", profile.id)
         assertTrue("Expected full maneuver list", profile.maneuvers.size >= 66)
     }
+
+    @Test
+    fun parseWithUtf8Bom_succeeds() {
+        val withBom = "\uFEFF$sampleJson"
+        val result = DashProfileJsonCodec.fromStream(ByteArrayInputStream(withBom.toByteArray(Charsets.UTF_8)))
+        assertTrue("UTF-8 BOM JSON must parse cleanly: ${result.exceptionOrNull()}", result.isSuccess)
+        assertEquals("synthetic_dash", result.getOrThrow().id)
+    }
+
+    @Test
+    fun rejectsTrailingGarbageAndWrongJsonTypes() {
+        val trailing = "$sampleJson trailing_garbage }"
+        assertTrue("Trailing data after JSON object must fail", DashProfileJsonCodec.fromJson(trailing).isFailure)
+
+        val jsonArray = "[$sampleJson]"
+        assertTrue("Top-level JSON array must fail", DashProfileJsonCodec.fromJson(jsonArray).isFailure)
+
+        val wrongPortType = sampleJson.replace("\"controlTxPort\": 3000", "\"controlTxPort\": \"3000\"")
+        assertTrue("String instead of integer port must fail", DashProfileJsonCodec.fromJson(wrongPortType).isFailure)
+    }
 }
