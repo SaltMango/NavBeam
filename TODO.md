@@ -36,4 +36,16 @@
   - **Tier 2 (Robolectric + Coroutines):** `NavBeamDb`, `RideRecorder`, `SettingsPrefs`, `RouteViewModel`, `RidesViewModel`, `DashViewModel`.
   - **Tier 3 (Compose UI):** Smoke/interaction tests for `HomeScreen`, `RouteScreen`, and `ProfileSetupScreen` using `compose-ui-test-junit4`.
 
+---
+
+## 🔌 P2 — Profile Sharing & URL Import
+
+- [ ] **Import Hardware Profile from URL / GitHub Link:**
+  - Add an **Import from URL** flow in `ProfileSetupScreen` (and optional `navbeam://import?url=...` deep link) accepting direct `.json`/`.navbeam` HTTPS URLs and GitHub `blob` URLs (auto-converting `github.com/.../blob/...` → `raw.githubusercontent.com/...`).
+  - Enforce security guardrails: HTTPS-only (reject `http://`, `file://`, `localhost`, and private/LAN IPs), 64 KB streaming size cap (`DashProfileJsonCodec.MAX_PROFILE_BYTES`), short timeout on `Dispatchers.IO`, and mandatory **Verify Profile** confirmation dialog before saving/activating.
+- [ ] **One-Tap `.navbeam` Sharing & Direct-Open Import:**
+  - Export/share active profiles as `<profile.id>.navbeam` (plain UTF-8 JSON inside) via Android Sharesheet (`FileProvider` + `Intent.ACTION_SEND`) for WhatsApp, Telegram, and Email.
+  - Register `<intent-filter>` on `MainActivity` for `.navbeam` (`ACTION_VIEW` / `ACTION_SEND`) to route directly to the **Verify Profile** dialog while keeping `.json` and **Paste JSON** supported.
+
+
 

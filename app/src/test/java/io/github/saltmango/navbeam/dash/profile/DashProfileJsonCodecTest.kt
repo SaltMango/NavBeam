@@ -370,4 +370,39 @@ class DashProfileJsonCodecTest {
         assertTrue("Non-UTF8 binary payload must fail", result.isFailure)
         assertTrue(result.exceptionOrNull() is SecurityException)
     }
+
+    @Test
+    fun profileFileImporter_allowsJsonAndNavbeamCaseInsensitively() {
+        val bytes = sampleJson.toByteArray(Charsets.UTF_8)
+        for (name in listOf("dash.json", "DASH.JSON", "dash.navbeam", "my.dash.NAVBEAM")) {
+            val result = ProfileFileImporter.importFromStream(
+                stream = ByteArrayInputStream(bytes),
+                sourceLabel = name,
+            )
+            assertTrue("Expected $name to be accepted: ${result.exceptionOrNull()}", result.isSuccess)
+        }
+    }
+
+    @Test
+    fun profileFileImporter_rejectsDisallowedFileExtensions() {
+        val validJsonBytes = sampleJson.toByteArray(Charsets.UTF_8)
+        val disallowed = listOf(
+            "notes.txt",
+            "archive.zip",
+            "image.png",
+            "document.pdf",
+            "config.xml",
+            "noextension",
+            "",
+            null,
+        )
+        for (name in disallowed) {
+            val result = ProfileFileImporter.importFromStream(
+                stream = ByteArrayInputStream(validJsonBytes),
+                sourceLabel = name,
+            )
+            assertTrue("Expected '$name' to be rejected", result.isFailure)
+            assertTrue(result.exceptionOrNull() is IllegalArgumentException)
+        }
+    }
 }

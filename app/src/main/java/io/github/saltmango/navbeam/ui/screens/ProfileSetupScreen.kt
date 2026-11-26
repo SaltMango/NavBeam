@@ -257,11 +257,12 @@ fun ProfileSetupScreen(
                     .padding(horizontal = 16.dp, vertical = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
-            // 1. Hero Card: Active Profile Telemetry OR Friendly Empty Status + Plain Instructions
+            // 1. Hero Card: Active Profile Telemetry OR Friendly Empty Status
             if (activeProfile.isConfigured) {
                 ActiveProfileHeroCard(profile = activeProfile)
             } else {
                 EmptyProfileHeroCard()
+                Spacer(Modifier.weight(1f))
                 Text(
                     text = "To connect your phone to your bike's screen, upload or paste the .navbeam or .json config file for your display model.",
                     color = colors.textHi,
@@ -270,6 +271,7 @@ fun ProfileSetupScreen(
                     fontFamily = GeistFamily,
                     modifier = Modifier.padding(horizontal = 2.dp)
                 )
+                Spacer(Modifier.weight(1f))
             }
 
             if (readingExternalFile) {
@@ -369,8 +371,8 @@ fun ProfileSetupScreen(
                         }
                     }
 
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         NavBeamButton(
@@ -380,7 +382,7 @@ fun ProfileSetupScreen(
                             variant = BtnVariant.Primary,
                             size = BtnSize.Lg,
                             enabled = !isImporting,
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.fillMaxWidth()
                         )
                         NavBeamButton(
                             label = "Paste JSON",
@@ -392,7 +394,7 @@ fun ProfileSetupScreen(
                             variant = BtnVariant.Secondary,
                             size = BtnSize.Lg,
                             enabled = !isImporting,
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
                 }
@@ -954,50 +956,55 @@ fun ProfileSetupScreen(
 @Composable
 private fun EmptyProfileHeroCard() {
     val colors = NavBeamTheme.colors
-    NavBeamCard(glow = true, modifier = Modifier.fillMaxWidth(), padding = 20.dp) {
+    val shape = NavBeamTheme.shapes.card
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(colors.surf1)
+            .border(1.dp, colors.alert.copy(alpha = 0.4f), shape)
+            .padding(20.dp)
+    ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.weight(1f)
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.weight(1f)
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(colors.alertTint)
+                    .border(1.dp, colors.alert.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
             ) {
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(colors.primaryTint)
-                ) {
-                    Icon(
-                        imageVector = NavBeamIcons.Dash,
-                        contentDescription = null,
-                        tint = colors.primary,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
-                Spacer(Modifier.width(12.dp))
-                Column {
-                    Text(
-                        text = "No Bike Display Added",
-                        color = colors.textHi,
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = GeistFamily
-                    )
-                    Text(
-                        text = "Add a config file to get started",
-                        color = colors.textMid,
-                        fontSize = 14.sp,
-                        fontFamily = GeistFamily
-                    )
-                }
+                Icon(
+                    imageVector = NavBeamIcons.MissingFile,
+                    contentDescription = null,
+                    tint = colors.alert,
+                    modifier = Modifier.size(21.dp)
+                )
             }
-            Spacer(Modifier.width(8.dp))
-            NavBeamChip(label = "NOT SET", tone = ChipTone.Neutral, dot = true)
+            Spacer(Modifier.width(12.dp))
+            Column {
+                Text(
+                    text = "No Display Profile",
+                    color = colors.textHi,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = GeistFamily
+                )
+                Text(
+                    text = "Add a config file to get started",
+                    color = colors.textMid,
+                    fontSize = 14.sp,
+                    fontFamily = GeistFamily
+                )
+            }
         }
+        Spacer(Modifier.width(8.dp))
+        NavBeamChip(label = "NOT SET", tone = ChipTone.Alert, dot = true)
     }
 }
 

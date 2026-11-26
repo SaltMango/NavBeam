@@ -12,11 +12,35 @@ data class ImportedProfilePayload(
 
 object ProfileFileImporter {
 
+    private val ALLOWED_EXTENSIONS = setOf("json", "navbeam")
+
+    fun validateSupportedExtension(fileName: String?) {
+        val clean = fileName?.trim().orEmpty()
+        if (clean.isEmpty()) {
+            throw IllegalArgumentException(
+                "Unsupported file type. Only .json and .navbeam profile files are allowed."
+            )
+        }
+        val baseName = clean.substringAfterLast('/').substringAfterLast('\\')
+        val ext = baseName.substringAfterLast('.', missingDelimiterValue = "").lowercase()
+        if (ext.isEmpty()) {
+            throw IllegalArgumentException(
+                "Unsupported file type. Only .json and .navbeam profile files are allowed."
+            )
+        }
+        if (ext !in ALLOWED_EXTENSIONS) {
+            throw IllegalArgumentException(
+                "Unsupported file '.$ext'. Only .json and .navbeam profile files are allowed."
+            )
+        }
+    }
+
     fun importFromStream(
         stream: InputStream,
         sourceLabel: String? = null,
         reportedSizeBytes: Long? = null,
     ): Result<ImportedProfilePayload> = runCatching {
+        validateSupportedExtension(sourceLabel)
         if (reportedSizeBytes != null && reportedSizeBytes > DashProfileJsonCodec.MAX_PROFILE_BYTES) {
             throw SecurityException(
                 "File is too large ($reportedSizeBytes bytes). Maximum allowed size is 64 KB."
@@ -25,12 +49,14 @@ object ProfileFileImporter {
         val parsed = DashProfileJsonCodec.fromStream(stream).getOrThrow()
         ImportedProfilePayload(
             profile = parsed,
-            sourceLabel = sourceLabel?.takeIf { it.isNotBlank() } ?: "Profile file",
+            sourceLabel = sourceLabel!!.trim(),
         )
     }
 
     fun importFromUri(contentResolver: ContentResolver, uri: Uri): Result<ImportedProfilePayload> = runCatching {
         val (displayName, reportedSize) = queryUriMetadata(contentResolver, uri)
+        val resolvedName = displayName ?: uri.lastPathSegment
+        validateSupportedExtension(resolvedName)
         if (reportedSize != null && reportedSize > DashProfileJsonCodec.MAX_PROFILE_BYTES) {
             throw SecurityException(
                 "File is too large ($reportedSize bytes). Maximum allowed size is 64 KB."
@@ -41,7 +67,7 @@ object ProfileFileImporter {
         stream.use { input ->
             importFromStream(
                 stream = input,
-                sourceLabel = displayName ?: uri.lastPathSegment,
+                sourceLabel = resolvedName,
                 reportedSizeBytes = reportedSize,
             ).getOrThrow()
         }
