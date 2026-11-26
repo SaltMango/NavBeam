@@ -1,11 +1,14 @@
 package io.github.saltmango.navbeam.ui.screens
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
+import androidx.core.net.toUri
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -37,6 +40,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -44,6 +48,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.saltmango.navbeam.BuildConfig
 import io.github.saltmango.navbeam.dash.nav.VoiceManager
 import io.github.saltmango.navbeam.dash.nav.VoiceMode
+import io.github.saltmango.navbeam.dash.profile.DashProfileManager
 import io.github.saltmango.navbeam.data.SettingsPrefs
 import io.github.saltmango.navbeam.data.MapsKeyManager
 import io.github.saltmango.navbeam.ui.NavBeamIcons
@@ -58,6 +63,9 @@ import io.github.saltmango.navbeam.viewmodel.ConnStage
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+
+private const val HOME_COMMUNITY_GITHUB_URL = "https://github.com/SaltMango/NavBeam"
+private const val HOME_TEMPLATE_SCHEMA_URL = "https://github.com/SaltMango/NavBeam/blob/main/DashProfile.json"
 
 @Composable
 fun HomeScreen(
@@ -75,7 +83,7 @@ fun HomeScreen(
 
 
     val dashUi by dashViewModel.ui.collectAsState()
-    val activeProfile by io.github.saltmango.navbeam.dash.profile.DashProfileManager.activeProfile.collectAsState()
+    val activeProfile by DashProfileManager.activeProfile.collectAsState()
 
     // Permissions gate for connecting to the dash
     val essentialPermissions = remember {
@@ -214,6 +222,23 @@ fun HomeScreen(
 
         NavBeamScreenHeader(wordmark = true)
 
+        if (!activeProfile.isConfigured) {
+            NoProfileHomeContent(
+                hasMapsKey = hasMapsKey,
+                onSetupProfile = { onNavigate("profile_setup") },
+                onOpenApiKeyDialog = { showApiKeyDialog = true },
+                onOpenExternalUrl = { url ->
+                    runCatching {
+                        ctx.startActivity(Intent(Intent.ACTION_VIEW, url.toUri()))
+                    }.onFailure {
+                        Toast.makeText(ctx, "No browser app found to open link.", Toast.LENGTH_SHORT).show()
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+            )
+        } else {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -313,55 +338,6 @@ fun HomeScreen(
                                 modifier = Modifier.weight(1f)
                             )
                         }
-                    }
-                }
-            }
-
-            // Hardware Profile Missing Banner (if skipped during onboarding)
-            if (!activeProfile.isConfigured) {
-                NavBeamCard(
-                    glow = true,
-                    padding = 14.dp,
-                    onClick = { onNavigate("profile_setup") },
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier
-                                .size(38.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(colors.primaryTint)
-                        ) {
-                            Icon(
-                                imageVector = NavBeamIcons.Wrench,
-                                contentDescription = "Hardware Profile Required",
-                                tint = colors.primary,
-                                modifier = Modifier.size(18.dp),
-                            )
-                        }
-                        Spacer(Modifier.width(12.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(
-                                text = "HARDWARE PROFILE NEEDED",
-                                color = colors.primary,
-                                style = NavBeamTheme.typography.badge,
-                            )
-                            Spacer(Modifier.height(2.dp))
-                            Text(
-                                text = "Tap to load your display's .json profile before connecting.",
-                                color = colors.textHi,
-                                fontSize = 13.5.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                fontFamily = GeistFamily,
-                            )
-                        }
-                        Icon(
-                            imageVector = NavBeamIcons.ChevronRight,
-                            contentDescription = null,
-                            tint = colors.textLo,
-                            modifier = Modifier.size(16.dp),
-                        )
                     }
                 }
             }
@@ -922,6 +898,7 @@ fun HomeScreen(
                 }
             }
         }
+        }
     }
 
     if (showApiKeyDialog) {
@@ -1000,3 +977,173 @@ private fun QuickPinChip(
         )
     }
 }
+
+@Composable
+private fun NoProfileHomeContent(
+    hasMapsKey: Boolean,
+    onSetupProfile: () -> Unit,
+    onOpenApiKeyDialog: () -> Unit,
+    onOpenExternalUrl: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val ctx = LocalContext.current
+    val colors = NavBeamTheme.colors
+
+    BoxWithConstraints(modifier = modifier) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = maxHeight)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 24.dp)
+                .padding(top = 12.dp, bottom = 28.dp),
+        ) {
+            if (!hasMapsKey) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(colors.alertTint)
+                        .border(1.dp, colors.alert.copy(alpha = 0.28f), RoundedCornerShape(12.dp))
+                        .clickable(onClick = onOpenApiKeyDialog)
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                ) {
+                    Icon(
+                        imageVector = NavBeamIcons.LocationPin,
+                        contentDescription = "Maps Key Warning",
+                        tint = colors.alert,
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Text(
+                        text = "Maps API key missing · Tap to add",
+                        color = colors.textHi,
+                        fontSize = 12.5.sp,
+                        fontWeight = FontWeight.Medium,
+                        fontFamily = GeistFamily,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Icon(
+                        imageVector = NavBeamIcons.ChevronRight,
+                        contentDescription = null,
+                        tint = colors.textLo,
+                        modifier = Modifier.size(15.dp),
+                    )
+                }
+            }
+
+            Spacer(Modifier.weight(1f))
+
+            // Missing profile emblem
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier.size(104.dp),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(104.dp)
+                        .clip(CircleShape)
+                        .background(colors.alertTint)
+                        .border(1.dp, colors.alert.copy(alpha = 0.25f), CircleShape),
+                )
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(72.dp)
+                        .clip(CircleShape)
+                        .background(colors.surf1)
+                        .border(1.5.dp, colors.alert.copy(alpha = 0.45f), CircleShape),
+                ) {
+                    Icon(
+                        imageVector = NavBeamIcons.MissingFile,
+                        contentDescription = "Missing Display Profile",
+                        tint = colors.alert,
+                        modifier = Modifier.size(30.dp),
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(22.dp))
+
+            NavBeamChip(label = "NO PROFILE LOADED", tone = ChipTone.Alert, dot = true)
+
+            Spacer(Modifier.height(16.dp))
+
+            Text(
+                text = "Load a Display Profile",
+                color = colors.textHi,
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = GeistFamily,
+                letterSpacing = (-0.5).sp,
+                textAlign = TextAlign.Center,
+            )
+
+            Spacer(Modifier.height(10.dp))
+
+            Text(
+                text = "Import your motorcycle display's .json profile to enable Wi-Fi linking, off-screen video encoding, and turn-by-turn dash navigation.",
+                color = colors.textMid,
+                fontSize = 14.sp,
+                lineHeight = 21.sp,
+                fontFamily = GeistFamily,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 8.dp),
+            )
+
+            Spacer(Modifier.weight(1.15f))
+
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 24.dp),
+            ) {
+                NavBeamButton(
+                    label = "Load Display Profile",
+                    onClick = onSetupProfile,
+                    icon = NavBeamIcons.UploadFile,
+                    variant = BtnVariant.Primary,
+                    size = BtnSize.Lg,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    NavBeamButton(
+                        label = "GitHub Repo",
+                        onClick = { onOpenExternalUrl(HOME_COMMUNITY_GITHUB_URL) },
+                        icon = NavBeamIcons.OpenInNew,
+                        variant = BtnVariant.Ghost,
+                        size = BtnSize.Sm,
+                        modifier = Modifier.weight(1f),
+                    )
+                    NavBeamButton(
+                        label = "JSON Template",
+                        onClick = { onOpenExternalUrl(HOME_TEMPLATE_SCHEMA_URL) },
+                        icon = NavBeamIcons.Code,
+                        variant = BtnVariant.Ghost,
+                        size = BtnSize.Sm,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+
+            if (BuildConfig.DEBUG) {
+                val buildSha = remember { BuildId.sha12(ctx) }
+                Text(
+                    text = "DEV BUILD: $buildSha • v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+                    color = colors.textLo.copy(alpha = 0.5f),
+                    fontSize = 10.sp,
+                    fontFamily = GeistMonoFamily,
+                    modifier = Modifier.padding(top = 16.dp),
+                )
+            }
+        }
+    }
+}
+

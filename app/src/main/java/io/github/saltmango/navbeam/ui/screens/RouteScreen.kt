@@ -60,6 +60,7 @@ import androidx.compose.ui.platform.LocalDensity
 fun RouteScreen(
     onBack: () -> Unit,
     onSentToDash: (String) -> Unit,
+    onSetupProfile: () -> Unit = {},
     routeViewModel: RouteViewModel = viewModel(),
     dashViewModel: DashViewModel = viewModel(),
 ) {
@@ -88,6 +89,8 @@ fun RouteScreen(
     }
     var sent by remember { mutableStateOf(false) }
     var showSave by remember { mutableStateOf(false) }
+    var showMissingProfileDialog by remember { mutableStateOf(false) }
+    val activeProfile by io.github.saltmango.navbeam.dash.profile.DashProfileManager.activeProfile.collectAsState()
     var editing by remember { mutableStateOf<io.github.saltmango.navbeam.data.SavedLocation?>(null) }
 
     val dashUi by dashViewModel.ui.collectAsState()
@@ -672,7 +675,9 @@ fun RouteScreen(
                                 else               -> "Start Navigation"
                             },
                             onClick = {
-                                if (hasLocationPermission()) {
+                                if (!activeProfile.isConfigured) {
+                                    showMissingProfileDialog = true
+                                } else if (hasLocationPermission()) {
                                     val lm = ctx.getSystemService(android.content.Context.LOCATION_SERVICE) as android.location.LocationManager
                                     val gpsEnabled = lm.isProviderEnabled(android.location.LocationManager.GPS_PROVIDER)
                                     val networkEnabled = lm.isProviderEnabled(android.location.LocationManager.NETWORK_PROVIDER)
@@ -1465,16 +1470,22 @@ fun RouteScreen(
                                     modifier = Modifier.weight(1f)
                                 )
                                 NavBeamButton(
-                                    label = "Connect",
+                                    label = if (!activeProfile.isConfigured) "Load Profile" else "Connect",
                                     onClick = {
-                                        val wm = ctx.applicationContext.getSystemService(android.content.Context.WIFI_SERVICE) as android.net.wifi.WifiManager
-                                        if (!wm.isWifiEnabled) {
-                                            dashViewModel.connect(autoStartProj = true)
-                                            runCatching {
-                                                ctx.startActivity(android.content.Intent(android.provider.Settings.Panel.ACTION_WIFI))
-                                            }
+                                        if (!activeProfile.isConfigured) {
+                                            dashViewModel.disconnect()
+                                            sent = false
+                                            onSetupProfile()
                                         } else {
-                                            dashViewModel.connect(autoStartProj = true)
+                                            val wm = ctx.applicationContext.getSystemService(android.content.Context.WIFI_SERVICE) as android.net.wifi.WifiManager
+                                            if (!wm.isWifiEnabled) {
+                                                dashViewModel.connect(autoStartProj = true)
+                                                runCatching {
+                                                    ctx.startActivity(android.content.Intent(android.provider.Settings.Panel.ACTION_WIFI))
+                                                }
+                                            } else {
+                                                dashViewModel.connect(autoStartProj = true)
+                                            }
                                         }
                                     },
                                     variant = BtnVariant.Primary,
@@ -1511,6 +1522,45 @@ fun RouteScreen(
                 onDismiss = {
                     showColorPickerDialog = false
                 }
+            )
+        }
+        if (showMissingProfileDialog) {
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { showMissingProfileDialog = false },
+                containerColor = colors.surf1,
+                title = {
+                    Text(
+                        text = "Display Profile Required",
+                        color = colors.textHi,
+                        fontFamily = GeistFamily,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                },
+                text = {
+                    Text(
+                        text = "Upload or paste your motorcycle display's .json profile before starting dash navigation.",
+                        color = colors.textMid,
+                        fontSize = 13.5.sp,
+                        fontFamily = GeistFamily,
+                    )
+                },
+                confirmButton = {
+                    androidx.compose.material3.TextButton(
+                        onClick = {
+                            showMissingProfileDialog = false
+                            onSetupProfile()
+                        }
+                    ) {
+                        Text("Load Profile", color = colors.primary, fontWeight = FontWeight.SemiBold)
+                    }
+                },
+                dismissButton = {
+                    androidx.compose.material3.TextButton(
+                        onClick = { showMissingProfileDialog = false }
+                    ) {
+                        Text("Cancel", color = colors.textMid)
+                    }
+                },
             )
         }
     } // close Box

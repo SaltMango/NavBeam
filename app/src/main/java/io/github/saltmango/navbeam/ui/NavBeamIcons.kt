@@ -22,6 +22,7 @@ import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.Flag
+import androidx.compose.material.icons.outlined.FolderOff
 import androidx.compose.material.icons.outlined.GpsFixed
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Home
@@ -117,6 +118,7 @@ object NavBeamIcons {
     val OpenInNew     = Icons.AutoMirrored.Outlined.OpenInNew
     val Code          = Icons.Outlined.Code
     val ErrorOutline  = Icons.Outlined.ErrorOutline
+    val MissingFile   = Icons.Outlined.FolderOff
 
     // ---- Custom icons (SVG path → ImageVector) ----
     val Dash: ImageVector = pathVec(
